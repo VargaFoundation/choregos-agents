@@ -36,9 +36,9 @@ jobs:
     # templates, evals, procedures, servers; then `pack` twice must give the same bytes.
     runs-on: ubuntu-latest
     env:
-      # The head of feat/s43-02-plugin-loader, where `choregos plugin` lives today.
+      # The head of feat/s43-07-plugin-tracker (carries #1031 and #1032); move to a release tag once merged.
       # TODO: move to the first core release tag that ships it (v0.21.0).
-      CHOREGOS_REF: 49fc8082170e1a44d919c0f1d040a9ee5058d380
+      CHOREGOS_REF: 2dd663f3b4af81473abb747ac58a723156eaf795
     steps:
       - uses: actions/checkout@v4
         with: { path: agents }
