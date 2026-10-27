@@ -22,7 +22,7 @@ The format is specified by ADR 0093 and ADR 0094 in the Choregos repository, and
 
 | Plugin | What it does |
 |:--|:--|
-| [`servicenow`](plugins/servicenow) | Triage ServiceNow incidents under human approval *(in progress)* |
+| [`servicenow`](plugins/servicenow) | Triage ServiceNow incidents under human approval: the `itsm-triager` agent, an `itsm-incident-triage` template, the MCP server over the Table API (tracker included), the instance set-up procedure |
 
 ## Installing
 

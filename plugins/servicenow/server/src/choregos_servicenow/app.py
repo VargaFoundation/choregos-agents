@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """The HTTP server: MCP (streamable HTTP) at `/mcp`, `GET /healthz`, and the webhook at `POST /events`.
 
+Every path but `/healthz` needs `Authorization: Bearer $CHOREGOS_SERVER_TOKEN`, the token the platform
+presents on each call and on each webhook it forwards (ADR 0094); the comparison is constant-time.
+
 Every tool the server serves is declared in `servers/servicenow.yaml` with its access; the platform
 refuses a tool that is not declared there and holds each write for the approval its policy requires.
 `action_key` is a PLATFORM argument (stable for one governed action): the agent never fills it.
@@ -8,6 +11,7 @@ refuses a tool that is not declared there and holds each write for the approval 
 
 from __future__ import annotations
 
+import hmac
 import logging
 import sys
 from collections.abc import Awaitable
@@ -21,6 +25,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__
 from .client import ServiceNowClient
@@ -33,6 +38,7 @@ from .tracker import Tracker
 from .webhook import parse, verify
 
 MAX_EVENT_BODY = 1 << 20
+HEALTH_PATH = "/healthz"
 
 log = structlog.get_logger("choregos_servicenow")
 
@@ -88,6 +94,32 @@ async def _run[T](name: str, call: Awaitable[T]) -> T:
         raise ToolError(str(error)) from error
     finally:
         structlog.contextvars.unbind_contextvars("tool")
+
+
+class BearerGuard:
+    """Refuses every HTTP request but the health probe without the platform's bearer token."""
+
+    def __init__(self, app: ASGIApp, token: str) -> None:
+        self.app = app
+        self.expected = f"Bearer {token}".encode()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"] != HEALTH_PATH:
+            presented = b""
+            for name, value in scope["headers"]:
+                if name.lower() == b"authorization":
+                    presented = value
+                    break
+            if not hmac.compare_digest(presented, self.expected):
+                log.warning("call_refused", reason="bearer token", path=scope["path"])
+                response = JSONResponse(
+                    {"error": "the platform's bearer token is required"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 class Runtime:
@@ -174,9 +206,10 @@ def build_server(runtime: Runtime) -> MCPServer:
         return await _run("add_work_note", tools.add_work_note(table, sys_id, text, action_key))
 
     @server.tool()
-    async def update_record(table: str, sys_id: str, fields: dict[str, str]) -> dict[str, Any]:
+    async def update_record(table: str, sys_id: str, fields: dict[str, str] | str) -> dict[str, Any]:
         """Change category, subcategory, impact, urgency, assignment_group, assigned_to or cmdb_ci (references
-        by sys_id). Never priority. Returns the previous values, which undo the change."""
+        by sys_id). Never priority. `fields` is an object (or its JSON text). Returns the previous values,
+        which undo the change."""
         return await _run("update_record", tools.update_record(table, sys_id, fields))
 
     @server.tool()
@@ -282,6 +315,7 @@ def build_server(runtime: Runtime) -> MCPServer:
 
 
 def build_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
+    token = settings.require_server_token()  # raises before anything listens
     runtime = Runtime(settings, transport)
     server = build_server(runtime)
     app = server.streamable_http_app(
@@ -309,8 +343,12 @@ def build_app(settings: Settings, transport: httpx.AsyncBaseTransport | None = N
         log.info("webhook_received", events=len(normalised))
         return JSONResponse(normalised)
 
-    app.router.routes.append(Route("/healthz", healthz, methods=["GET"]))
+    app.router.routes.append(Route(HEALTH_PATH, healthz, methods=["GET"]))
     app.router.routes.append(Route("/events", events, methods=["POST"]))
+    if token is not None:
+        app.add_middleware(BearerGuard, token=token.get_secret_value())
+    else:
+        log.warning("insecure_dev", reason="no CHOREGOS_SERVER_TOKEN: every call is accepted (fake instance only)")
     app.state.runtime = runtime
     app.state.mcp = server
     return app
@@ -322,7 +360,12 @@ def main() -> None:
     configure_logging()
     settings = Settings.from_env()
     log.info("starting", fake=settings.fake, auth=settings.auth, port=settings.port)
-    uvicorn.run(build_app(settings), host="0.0.0.0", port=settings.port, log_config=None)  # noqa: S104
+    try:
+        app = build_app(settings)
+    except ValueError as refused:
+        log.error("refused_to_start", reason=str(refused))
+        raise SystemExit(2) from refused
+    uvicorn.run(app, host="0.0.0.0", port=settings.port, log_config=None)  # noqa: S104
 
 
 if __name__ == "__main__":

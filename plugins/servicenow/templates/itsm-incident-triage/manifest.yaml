@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: choregos/v1
+kind: Template
+metadata:
+  name: itsm-incident-triage
+  version: 0.1.0
+  display: ServiceNow · incident triage under approval
+  description: >-
+    Incidents of a ServiceNow assignment queue become work items. The ITSM triager reads each one and
+    proposes a classification and actions with their evidence; the service desk reviews and settles the
+    classification; the platform writes what was approved back to ServiceNow as one governed action.
+    Nothing is written to the instance before a person approves it.
+requires:
+  connectors:
+    # The project's tracker is the ServiceNow server this plugin ships (`implements: [tracker]`), through
+    # the core's tracker/plugin adapter (S43-07). The template format has no way yet to say "the tracker
+    # is plugin P's server S": this value is a convention, `plugin:<plugin>/<server>`, mirroring the
+    # webhook route `/webhooks/plugins/{plugin}/{server}`. See README.md.
+    tracker: plugin:servicenow/servicenow
+  # The organisation connector the plugin's install creates for its server, by name, and its capability.
+  org_connectors:
+    servicenow: mcp
+defaults:
+  workflows: [./workflows/incident-triage.yaml]
+  default_workflow: incident-triage
+  policy: preset:solo
+  # The agent `itsm-triager` and the skill `servicenow-triage` come with the plugin itself (installed in
+  # the organisation when the plugin is), so the template does not list them.
+inputs: []
+steps: []

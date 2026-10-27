@@ -6,8 +6,8 @@ name: servicenow
 image: ghcr.io/vargafoundation/choregos-agents/servicenow-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
 port: 8080
 protocol: mcp-http
-path: /mcp
-health: /healthz
+# MCP at /mcp, behind the platform's bearer token (CHOREGOS_SERVER_TOKEN); the health probe stays open.
+paths: {mcp: /mcp, health: /healthz}
 
 # What an administrator types when installing the plugin. Each property reaches the server as the
 # environment variable named in `x-env`; `secret_fields` are sealed and never shown again.
@@ -61,9 +61,10 @@ egress:
   from_fields: [base_url]
 
 # The governance floor. `access: read` is allowed by default; a write goes through approval unless an
-# administrator decides otherwise; `human_approval: true` is never lowered. `compensation` undoes the
-# write, rendered with the write's own `result`. `platform_arguments` are filled by the platform (an
-# idempotency key stable for one governed action), never by the agent.
+# administrator decides otherwise; `human_approval: true` is never lowered. `compensation` is the
+# operation that undoes the write, its arguments rendered from the write's own result; the platform
+# renders every argument to a string, so `fields` travels as JSON (`tojson`) and the server accepts it.
+# `platform_arguments: [action_key]` is an idempotency key the platform fills, never the agent.
 operations:
   - {name: search_records, access: read}
   - {name: get_record, access: read}
@@ -75,21 +76,24 @@ operations:
 
   - name: add_work_note
     access: write
+    description: An internal work note, idempotent through the platform's action_key.
     platform_arguments: [action_key]
   - name: update_record
     access: write
+    description: Classification fields, never priority. Undone by writing the previous values back.
     compensation:
       operation: update_record
       arguments:
         table: "{{ result.table }}"
         sys_id: "{{ result.sys_id }}"
-        fields: "{{ result.previous }}"
+        fields: "{{ result.previous | tojson }}"
   - name: add_comment
     access: write
     human_approval: true
   - name: resolve_incident
     access: write
     human_approval: true
+    description: Resolves an incident. Undone by reopening it to its previous state.
     compensation:
       operation: reopen_incident
       arguments:
@@ -100,6 +104,7 @@ operations:
   - name: create_change_request
     access: write
     human_approval: true
+    description: A change request, idempotent through the platform's action_key (its correlation_id).
     platform_arguments: [action_key]
 
   # The tracker profile (TRACKER_PROFILE.md), called by the core's tracker/plugin adapter.

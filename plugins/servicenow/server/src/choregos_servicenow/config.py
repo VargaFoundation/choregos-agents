@@ -4,6 +4,10 @@
 The platform fills these variables from the plugin's `config_schema` and its sealed `secret_fields`
 (`servers/servicenow.yaml`). `SERVICENOW_FAKE=1` replaces the instance with a seeded in-memory one, so
 tests and demos need no account.
+
+`CHOREGOS_SERVER_TOKEN` is the platform's (ADR 0094): the bearer token it presents on every call. The
+server refuses to start without it, except on the fake instance with `CHOREGOS_SERVER_INSECURE_DEV=1`
+said explicitly, for a local demo.
 """
 
 from __future__ import annotations
@@ -35,6 +39,10 @@ class Settings(BaseModel):
     assignment_groups: tuple[str, ...] = ()
     fake: bool = False
     port: int = 8080
+    #: The bearer token the platform presents on every call but the health probe (ADR 0094).
+    server_token: SecretStr | None = None
+    #: `CHOREGOS_SERVER_INSECURE_DEV=1`: no token, accepted on the fake instance only.
+    insecure_dev: bool = False
 
     @model_validator(mode="after")
     def _credentials_present(self) -> Settings:
@@ -46,6 +54,17 @@ class Settings(BaseModel):
             raise ValueError("SERVICENOW_AUTH=basic needs SERVICENOW_USERNAME and SERVICENOW_PASSWORD")
         return self
 
+    def require_server_token(self) -> SecretStr | None:
+        """The token every call must carry; `None` only on the fake instance in explicit insecure dev mode."""
+        if self.server_token is not None and self.server_token.get_secret_value():
+            return self.server_token
+        if self.fake and self.insecure_dev:
+            return None
+        raise ValueError(
+            "CHOREGOS_SERVER_TOKEN is not set: the server refuses to start without the platform's token "
+            "(only SERVICENOW_FAKE=1 with CHOREGOS_SERVER_INSECURE_DEV=1 runs without it)"
+        )
+
     @property
     def instance_url(self) -> str:
         return self.base_url.rstrip("/")
@@ -55,6 +74,8 @@ class Settings(BaseModel):
         source = os.environ if env is None else env
         groups = tuple(g.strip() for g in source.get("SERVICENOW_ASSIGNMENT_GROUPS", "").split(",") if g.strip())
         port = int(source.get("PORT", "8080"))
+        server_token = SecretStr(source["CHOREGOS_SERVER_TOKEN"]) if source.get("CHOREGOS_SERVER_TOKEN") else None
+        insecure_dev = source.get("CHOREGOS_SERVER_INSECURE_DEV", "") == "1"
         if source.get("SERVICENOW_FAKE", "") in ("1", "true", "yes"):
             return cls(
                 base_url=FAKE_BASE_URL,
@@ -65,6 +86,8 @@ class Settings(BaseModel):
                 assignment_groups=groups or ("Service Desk",),
                 fake=True,
                 port=port,
+                server_token=server_token,
+                insecure_dev=insecure_dev,
             )
         auth = source.get("SERVICENOW_AUTH", "oauth")
         if auth not in ("oauth", "basic"):
@@ -84,4 +107,6 @@ class Settings(BaseModel):
             webhook_secret=secret("SERVICENOW_WEBHOOK_SECRET"),
             assignment_groups=groups,
             port=port,
+            server_token=server_token,
+            insecure_dev=insecure_dev,
         )

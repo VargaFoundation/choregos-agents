@@ -7,11 +7,13 @@ leaves one effect — and return what a compensation needs to undo them:
 - `add_work_note` leaves a marker `[choregos:<key>]` in the note and does nothing if a note with the
   marker exists (the key is the platform's `action_key`, or a hash of the text);
 - `add_comment` does nothing if the same comment is already on the record;
-- `update_record` returns the previous values (its compensation writes them back); `priority` is never
-  written: ServiceNow computes it from impact and urgency;
+- `update_record` returns the previous values (its compensation writes them back, as JSON text since the
+  platform renders a compensation's arguments to strings); `priority` is never written: ServiceNow
+  computes it from impact and urgency;
 - `resolve_incident` returns the previous state (its compensation, `reopen_incident`, restores it);
-- `create_change_request` records `correlation_id = choregos:<key>` and returns the existing change
-  when one carries it.
+- `create_change_request` records `correlation_id = choregos:<key>` (the key is the platform's
+  `action_key`, else the agent's `correlation_id`, else a hash of the text) and returns the existing
+  change when one carries it.
 
 Every text read from ServiceNow is third-party data (a caller wrote it): the tools return it as data and
 never act on it.
@@ -20,6 +22,7 @@ never act on it.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -63,6 +66,20 @@ def marker_of(key: str) -> str:
     if not _MARKER.match(key):
         raise Refused("an action key is 1-80 characters among letters, digits and . _ : -")
     return f"[choregos:{key}]"
+
+
+def _fields_object(fields: dict[str, str] | str) -> dict[str, str]:
+    """`fields` as an object, or as the JSON text of one: a compensation's arguments are rendered to
+    strings by the platform (`{{ result.previous | tojson }}`)."""
+    if isinstance(fields, dict):
+        return fields
+    try:
+        parsed = json.loads(fields)
+    except ValueError:
+        raise Refused("fields is an object, or the JSON text of one") from None
+    if not isinstance(parsed, dict):
+        raise Refused("fields is an object, or the JSON text of one")
+    return {str(name): value for name, value in parsed.items()}
 
 
 def keywords(text: str, limit: int = 5) -> list[str]:
@@ -269,9 +286,10 @@ class ServiceNowTools:
         await self.client.update(table, sys_id, {"comments": text})
         return {"table": table, "sys_id": sys_id, "written": True}
 
-    async def update_record(self, table: str, sys_id: str, fields: dict[str, str]) -> dict[str, Any]:
+    async def update_record(self, table: str, sys_id: str, fields: dict[str, str] | str) -> dict[str, Any]:
         _check_task_table(table)
         check_sys_id(sys_id)
+        fields = _fields_object(fields)
         if "priority" in fields:
             raise Refused("priority is never written: ServiceNow computes it from impact and urgency")
         if not fields:
@@ -366,7 +384,7 @@ class ServiceNowTools:
         for value in (cmdb_ci, assignment_group):
             if value:
                 check_sys_id(value)
-        key = correlation_id or action_key or text_key(short_description, description, implementation_plan)
+        key = action_key or correlation_id or text_key(short_description, description, implementation_plan)
         marker_of(key)
         correlation = f"choregos:{key}"
         existing = await self.client.find_one(

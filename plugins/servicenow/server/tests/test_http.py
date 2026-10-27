@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The HTTP surface: `/mcp` (streamable HTTP), `/healthz` and the webhook `POST /events`."""
+"""The HTTP surface: `/mcp` (streamable HTTP), `/healthz` and the webhook `POST /events`, all but the
+health probe behind the platform's bearer token (ADR 0094)."""
 
 from __future__ import annotations
 
@@ -15,6 +16,8 @@ from choregos_servicenow.config import Settings
 from choregos_servicenow.fake import sys_id_of
 
 SECRET = "s3cret-for-tests"
+TOKEN = "platform-token-for-tests"
+BEARER = {"Authorization": f"Bearer {TOKEN}"}
 #: The Host the platform's Service gives the server: not localhost, and accepted.
 BASE = "http://servicenow.choregos-plugins.svc:8080"
 MCP_HEADERS = {"Accept": "application/json, text/event-stream", "mcp-protocol-version": "2025-06-18"}
@@ -22,8 +25,8 @@ MCP_HEADERS = {"Accept": "application/json, text/event-stream", "mcp-protocol-ve
 
 @pytest.fixture
 def http() -> Iterator[TestClient]:
-    app = build_app(Settings.from_env({"SERVICENOW_FAKE": "1", "SERVICENOW_WEBHOOK_SECRET": SECRET}))
-    with TestClient(app, base_url=BASE) as client:
+    env = {"SERVICENOW_FAKE": "1", "SERVICENOW_WEBHOOK_SECRET": SECRET, "CHOREGOS_SERVER_TOKEN": TOKEN}
+    with TestClient(build_app(Settings.from_env(env)), base_url=BASE, headers=BEARER) as client:
         yield client
 
 
@@ -40,7 +43,57 @@ def _event(**overrides: object) -> dict[str, object]:
 
 
 def test_healthz(http: TestClient) -> None:
-    assert http.get("/healthz").json() == {"status": "ok", "fake": True, "version": "0.1.0"}
+    assert http.get("/healthz", headers={"Authorization": ""}).json() == {
+        "status": "ok",
+        "fake": True,
+        "version": "0.1.0",
+    }
+
+
+def _tools_list(client: TestClient, headers: dict[str, str]) -> int:
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+    return client.post("/mcp", headers={**MCP_HEADERS, **headers}, json=body).status_code
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    ["", f"Bearer {TOKEN}x", f"Bearer {TOKEN[:-1]}", f"bearer{TOKEN}", TOKEN, "Basic dTpw", "Bearer "],
+)
+def test_mcp_without_the_platform_token_is_refused(http: TestClient, authorization: str) -> None:
+    assert _tools_list(http, {"Authorization": authorization}) == 401
+    assert http.post("/mcp/", headers={**MCP_HEADERS, "Authorization": authorization}, json={}).status_code == 401
+
+
+def test_mcp_with_the_platform_token_answers(http: TestClient) -> None:
+    assert _tools_list(http, {}) == 200
+
+
+def test_events_need_the_platform_token_as_well_as_the_secret(http: TestClient) -> None:
+    headers = {"X-Choregos-Secret": SECRET, "Authorization": ""}
+    assert http.post("/events", headers=headers, content=json.dumps(_event())).status_code == 401
+
+
+def test_the_server_refuses_to_start_without_a_token() -> None:
+    for env in (
+        {"SERVICENOW_FAKE": "1"},
+        {"SERVICENOW_FAKE": "1", "CHOREGOS_SERVER_TOKEN": ""},
+        {"SERVICENOW_FAKE": "1", "CHOREGOS_SERVER_INSECURE_DEV": "true"},
+        {
+            "SERVICENOW_BASE_URL": "https://x.service-now.com",
+            "SERVICENOW_AUTH": "basic",
+            "SERVICENOW_USERNAME": "u",
+            "SERVICENOW_PASSWORD": "p",
+            "CHOREGOS_SERVER_INSECURE_DEV": "1",
+        },
+    ):
+        with pytest.raises(ValueError, match="CHOREGOS_SERVER_TOKEN"):
+            build_app(Settings.from_env(env))
+
+
+def test_insecure_dev_runs_the_fake_without_a_token() -> None:
+    settings = Settings.from_env({"SERVICENOW_FAKE": "1", "CHOREGOS_SERVER_INSECURE_DEV": "1"})
+    with TestClient(build_app(settings), base_url=BASE) as client:
+        assert _tools_list(client, {}) == 200
 
 
 def test_mcp_over_streamable_http(http: TestClient) -> None:
@@ -102,7 +155,13 @@ def test_malformed_events_are_rejected(http: TestClient, body: str) -> None:
 
 
 def test_events_without_a_configured_secret_are_refused() -> None:
-    settings = Settings(base_url="https://x.service-now.com", auth="basic", username="u", password=SecretStr("p"))
-    with TestClient(build_app(settings), base_url=BASE) as client:
+    settings = Settings(
+        base_url="https://x.service-now.com",
+        auth="basic",
+        username="u",
+        password=SecretStr("p"),
+        server_token=SecretStr(TOKEN),
+    )
+    with TestClient(build_app(settings), base_url=BASE, headers=BEARER) as client:
         response = client.post("/events", headers={"X-Choregos-Secret": ""}, content=json.dumps(_event()))
     assert response.status_code == 401
