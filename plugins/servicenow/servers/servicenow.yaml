@@ -6,8 +6,8 @@ name: servicenow
 image: ghcr.io/vargafoundation/choregos-agents/servicenow-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
 port: 8080
 protocol: mcp-http
-# The server answers MCP at /mcp and its health at /healthz. plugin-server.schema.json (core S43-01) has
-# no `path` nor `health` key yet: these are the paths the platform must assume (finding for S43-06).
+# MCP at /mcp, behind the platform's bearer token (CHOREGOS_SERVER_TOKEN); the health probe stays open.
+paths: {mcp: /mcp, health: /healthz}
 
 # What an administrator types when installing the plugin. Each property reaches the server as the
 # environment variable named in `x-env`; `secret_fields` are sealed and never shown again.
@@ -61,16 +61,10 @@ egress:
   from_fields: [base_url]
 
 # The governance floor. `access: read` is allowed by default; a write goes through approval unless an
-# administrator decides otherwise; `human_approval: true` is never lowered. `compensation` names the
-# operation that undoes the write.
-#
-# What the schema cannot say yet (plugin-server.schema.json is closed; findings for S43-06), kept here and
-# in each operation's `description`, and checked by server/tests/test_descriptor.py:
-# - a compensation's arguments, taken from the write's result:
-#     update_record    -> update_record(table=result.table, sys_id=result.sys_id, fields=result.previous)
-#     resolve_incident -> reopen_incident(sys_id=result.sys_id, state=result.previous_state)
-# - `action_key`, an argument the platform fills (an idempotency key stable for one governed action),
-#   never the agent: add_work_note, create_change_request, tracker_create_item, tracker_comment.
+# administrator decides otherwise; `human_approval: true` is never lowered. `compensation` is the
+# operation that undoes the write, its arguments rendered from the write's own result; the platform
+# renders every argument to a string, so `fields` travels as JSON (`tojson`) and the server accepts it.
+# `platform_arguments: [action_key]` is an idempotency key the platform fills, never the agent.
 operations:
   - {name: search_records, access: read}
   - {name: get_record, access: read}
@@ -82,33 +76,44 @@ operations:
 
   - name: add_work_note
     access: write
-    description: An internal work note. `action_key` is filled by the platform (idempotency), never by the agent.
+    description: An internal work note, idempotent through the platform's action_key.
+    platform_arguments: [action_key]
   - name: update_record
     access: write
-    description: Classification fields, never priority. Undone by update_record(table, sys_id, fields=result.previous).
-    compensation: update_record
+    description: Classification fields, never priority. Undone by writing the previous values back.
+    compensation:
+      operation: update_record
+      arguments:
+        table: "{{ result.table }}"
+        sys_id: "{{ result.sys_id }}"
+        fields: "{{ result.previous | tojson }}"
   - name: add_comment
     access: write
     human_approval: true
   - name: resolve_incident
     access: write
     human_approval: true
-    description: Resolves an incident. Undone by reopen_incident(sys_id=result.sys_id, state=result.previous_state).
-    compensation: reopen_incident
+    description: Resolves an incident. Undone by reopening it to its previous state.
+    compensation:
+      operation: reopen_incident
+      arguments:
+        sys_id: "{{ result.sys_id }}"
+        state: "{{ result.previous_state }}"
   - name: reopen_incident
     access: write
   - name: create_change_request
     access: write
     human_approval: true
-    description: Idempotent through correlation_id. `action_key` is filled by the platform, never by the agent.
+    description: A change request, idempotent through the platform's action_key (its correlation_id).
+    platform_arguments: [action_key]
 
   # The tracker profile (TRACKER_PROFILE.md), called by the core's tracker/plugin adapter.
   - {name: tracker_fetch_item, access: read}
   - {name: tracker_list_candidates, access: read}
   - {name: tracker_parse_event, access: read}
-  - {name: tracker_create_item, access: write, description: "`action_key` is filled by the platform."}
+  - {name: tracker_create_item, access: write, platform_arguments: [action_key]}
   - {name: tracker_set_state, access: write}
-  - {name: tracker_comment, access: write, description: "`action_key` is filled by the platform."}
+  - {name: tracker_comment, access: write, platform_arguments: [action_key]}
   - {name: tracker_upsert_status, access: write}
   - {name: tracker_close, access: write}
 

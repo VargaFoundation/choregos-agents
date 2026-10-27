@@ -11,6 +11,7 @@ vendor_docs:
   - {title: "Business rules", url: "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/script/business-rules/concept/c_BusinessRules.html"}
   - {title: "RESTMessageV2 API", url: "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/app-store/dev_portal/API_reference/RESTMessageV2/concept/c_RESTMessageV2API.html"}
 egress: ["<instance>.service-now.com"]
+values: ["plugin_webhook_url:servicenow/servicenow"]
 fields:
   base_url: "https://<instance>.service-now.com, without a trailing slash"
   auth: "oauth (client credentials), or basic for an older release or a Personal Developer Instance"
@@ -52,7 +53,7 @@ fields:
      integration user's password instead.
 4. **The webhook properties.** System Properties, **New**, twice, both with **Read roles** and
    **Write roles** set to `admin`:
-   - `choregos.webhook_url`, type string: `{{api_url}}/api/v1/webhooks/plugins/servicenow/servicenow`;
+   - `choregos.webhook_url`, type string: `{{plugin_webhook_url:servicenow/servicenow}}`;
    - `choregos.webhook_secret`, type string: the webhook secret.
 5. **The Business Rule.** System Definition, Business Rules, **New**: name `Choregos - notify`, table
    **Incident [incident]**, check **Advanced**. When: **after**, on **Insert** and **Update**. Filter

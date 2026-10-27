@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from jinja2 import StrictUndefined
+from jinja2.sandbox import SandboxedEnvironment
 from mcp import Client
 from mcp.server.mcpserver import MCPServer
 
@@ -27,21 +29,26 @@ TRACKER_TOOLS = {
     "tracker_list_candidates",
     "tracker_parse_event",
 }
-#: What plugin-server.schema.json cannot hold yet (the descriptor's comments say so): the arguments the
-#: platform fills (an idempotency key), and each compensation's arguments taken from the write's result.
+#: The arguments the platform fills (an idempotency key), and what undoes each write (ADR 0094).
 PLATFORM_ARGUMENTS = {
     "add_work_note": {"action_key"},
     "create_change_request": {"action_key"},
     "tracker_create_item": {"action_key"},
     "tracker_comment": {"action_key"},
 }
-COMPENSATION_ARGUMENTS = {
+COMPENSATIONS = {
     "update_record": {
-        "table": "{{ result.table }}",
-        "sys_id": "{{ result.sys_id }}",
-        "fields": "{{ result.previous }}",
+        "operation": "update_record",
+        "arguments": {
+            "table": "{{ result.table }}",
+            "sys_id": "{{ result.sys_id }}",
+            "fields": "{{ result.previous | tojson }}",
+        },
     },
-    "resolve_incident": {"sys_id": "{{ result.sys_id }}", "state": "{{ result.previous_state }}"},
+    "resolve_incident": {
+        "operation": "reopen_incident",
+        "arguments": {"sys_id": "{{ result.sys_id }}", "state": "{{ result.previous_state }}"},
+    },
 }
 
 
@@ -61,10 +68,12 @@ async def test_every_served_tool_is_declared_and_nothing_else(server: MCPServer)
     assert set(served) == set(operations())
     for name, op in operations().items():
         assert op["access"] in ("read", "write"), name
-        properties = set(served[name].input_schema.get("properties", {}))
-        assert PLATFORM_ARGUMENTS.get(name, set()) <= properties, name
-        if name in PLATFORM_ARGUMENTS:
-            assert "action_key" in op.get("description", ""), name
+        schema = served[name].input_schema
+        assert set(op.get("platform_arguments", [])) == PLATFORM_ARGUMENTS.get(name, set()), name
+        for argument in op.get("platform_arguments", []):
+            # Served, and optional: the platform validates the agent's arguments before it fills its own.
+            assert argument in schema.get("properties", {}), name
+            assert argument not in schema.get("required", []), name
 
 
 def test_the_three_customer_visible_or_irreversible_writes_need_a_person() -> None:
@@ -75,16 +84,17 @@ def test_the_three_customer_visible_or_irreversible_writes_need_a_person() -> No
 
 def test_compensations_name_declared_operations() -> None:
     compensations = {name: op["compensation"] for name, op in operations().items() if "compensation" in op}
-    assert compensations == {"update_record": "update_record", "resolve_incident": "reopen_incident"}
-    assert set(COMPENSATION_ARGUMENTS) == set(compensations)
+    assert compensations == COMPENSATIONS
+    assert all(c["operation"] in operations() for c in compensations.values())
 
 
 def test_the_rest_of_the_descriptor() -> None:
     d = descriptor()
     assert re.fullmatch(r"ghcr\.io/vargafoundation/choregos-agents/servicenow-mcp@sha256:[0-9a-f]{64}", d["image"])
-    assert (d["port"], d["protocol"], d["implements"], d["webhook"]) == (
+    assert (d["port"], d["protocol"], d["paths"], d["implements"], d["webhook"]) == (
         8080,
         "mcp-http",
+        {"mcp": "/mcp", "health": "/healthz"},
         ["tracker"],
         {"path": "/events"},
     )
@@ -105,24 +115,22 @@ def test_the_rest_of_the_descriptor() -> None:
 
 
 async def test_the_declared_compensations_undo_their_write(mcp: Mcp) -> None:
-    """Render each compensation's arguments with the write's result, as the platform does, and run it."""
+    """Render each compensation's arguments with the write's result, as the platform does (every string
+    through a sandboxed Jinja with undefined names refused, so each argument arrives as a string), and
+    run it."""
 
     def render(template: dict[str, str], result: dict[str, Any]) -> dict[str, Any]:
-        out: dict[str, Any] = {}
-        for key, value in template.items():
-            match = re.fullmatch(r"\{\{ result\.(\w+) \}\}", value)
-            assert match, value
-            out[key] = result[match.group(1)]
-        return out
+        env = SandboxedEnvironment(undefined=StrictUndefined)
+        return {key: env.from_string(value).render(result=result) for key, value in template.items()}
 
     sys_id = sys_id_of("INC0010010")
     before = await mcp.call("get_record", table="incident", sys_id=sys_id)
     update = await mcp.call("update_record", table="incident", sys_id=sys_id, fields={"urgency": "1", "category": "x"})
     undo = operations()["update_record"]["compensation"]
-    await mcp.call(undo, **render(COMPENSATION_ARGUMENTS["update_record"], update))
+    await mcp.call(undo["operation"], **render(undo["arguments"], update))
     resolved = await mcp.call("resolve_incident", sys_id=sys_id, close_code="Solution provided", close_notes="n")
-    reopen = operations()["resolve_incident"]["compensation"]
-    reopen_arguments = COMPENSATION_ARGUMENTS["resolve_incident"]
+    reopen = operations()["resolve_incident"]["compensation"]["operation"]
+    reopen_arguments = operations()["resolve_incident"]["compensation"]["arguments"]
     await mcp.call(reopen, **render(reopen_arguments, resolved))
     after = await mcp.call("get_record", table="incident", sys_id=sys_id)
     for name in ("urgency", "category", "state", "priority"):

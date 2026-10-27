@@ -248,3 +248,28 @@ async def test_create_change_request_is_idempotent(mcp: Mcp, fake: FakeServiceNo
     assert first["correlation_id"] == "choregos:act-42"
     assert len(fake.rows("change_request")) == 2  # the seeded one and this one
     assert first["record"]["fields"]["number"].startswith("CHG")
+
+
+async def test_the_platform_action_key_is_the_change_correlation_id(mcp: Mcp, fake: FakeServiceNow) -> None:
+    """The platform's key wins over whatever correlation_id the agent wrote: a replay of the same governed
+    call finds the change, even when the agent changed its own correlation_id."""
+    arguments = {
+        "short_description": "Rotate the VPN certificate",
+        "description": "From INC0010006.",
+        "implementation_plan": "Install the new certificate.",
+        "backout_plan": "Reinstall the old one.",
+        "test_plan": "Connect from a laptop.",
+    }
+    first = await mcp.call("create_change_request", **arguments, correlation_id="agent-1", action_key="0123abcd")
+    again = await mcp.call("create_change_request", **arguments, correlation_id="agent-2", action_key="0123abcd")
+    assert first["correlation_id"] == again["correlation_id"] == "choregos:0123abcd"
+    assert (first["created"], again["created"]) == (True, False)
+    assert len(fake.rows("change_request")) == 2
+
+
+async def test_update_record_takes_its_fields_as_json_text(mcp: Mcp) -> None:
+    sys_id = sys_id_of("INC0010010")
+    changed = await mcp.call("update_record", table="incident", sys_id=sys_id, fields='{"urgency": "1"}')
+    assert changed["current"] == {"urgency": "1"}
+    assert "JSON text" in await mcp.error("update_record", table="incident", sys_id=sys_id, fields="not json")
+    assert await mcp.error("update_record", table="incident", sys_id=sys_id, fields='["urgency"]')

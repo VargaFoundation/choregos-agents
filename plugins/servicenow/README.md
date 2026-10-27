@@ -65,11 +65,13 @@ An MCP server (streamable HTTP at `/mcp`) over the ServiceNow **Table API**:
 | `add_comment` | write, **a person approves** | the caller sees it |
 | `resolve_incident` | write, **a person approves** | compensation: `reopen_incident` |
 | `reopen_incident` | write | undoes a resolution |
-| `create_change_request` | write, **a person approves** | idempotent through `correlation_id` |
+| `create_change_request` | write, **a person approves** | idempotent through the platform's `action_key` (its `correlation_id`) |
 | `tracker_*` (8 tools) | read / write | the tracker profile, see [server/TRACKER_PROFILE.md](server/TRACKER_PROFILE.md) |
 
-It also serves `GET /healthz` and `POST /events`, the webhook a ServiceNow Business Rule posts to (the
-shared secret in `X-Choregos-Secret`, compared in constant time; answers
+Every call but `GET /healthz` needs `Authorization: Bearer $CHOREGOS_SERVER_TOKEN`, the token the
+platform generates and presents (ADR 0094), compared in constant time; without the variable the server
+refuses to start. It also serves `GET /healthz` and `POST /events`, the webhook a ServiceNow Business Rule
+posts to through the platform (the shared secret in `X-Choregos-Secret`, compared in constant time; answers
 `[{kind, item_key, delivery_id}]` with `delivery_id = sys_id:sys_mod_count`).
 
 The rules it enforces before any call to ServiceNow:
@@ -100,14 +102,16 @@ are sealed):
 | `SERVICENOW_USERNAME`, `SERVICENOW_PASSWORD` | the integration user (`auth=basic`); give it a custom role, never `admin` |
 | `SERVICENOW_WEBHOOK_SECRET` | the secret the Business Rule sends; without it, `/events` refuses everything |
 | `SERVICENOW_ASSIGNMENT_GROUPS` | comma-separated group names or sys_ids whose queue `tracker_list_candidates` polls |
+| `CHOREGOS_SERVER_TOKEN` | the platform's bearer token, required on every call but `/healthz`; set by the platform, never typed |
 | `SERVICENOW_FAKE` | `1` for the fake instance (below) |
+| `CHOREGOS_SERVER_INSECURE_DEV` | `1` with `SERVICENOW_FAKE=1` only: run without a token, for a local demo |
 | `PORT` | listening port, `8080` by default |
 
 ## Fake mode
 
 `SERVICENOW_FAKE=1` puts a seeded in-memory instance under the real client (as an `httpx` transport),
-so the encoded queries, field lists and authentication follow the production path. No variable other
-than `SERVICENOW_FAKE` is needed; the webhook secret defaults to `fake-webhook-secret` and the queue to
+so the encoded queries, field lists and authentication follow the production path. No ServiceNow
+variable is needed (a token is, or `CHOREGOS_SERVER_INSECURE_DEV=1`); the webhook secret defaults to `fake-webhook-secret` and the queue to
 `Service Desk`. The seed:
 
 - twelve incidents: a duplicate pair (`INC0010001`/`INC0010002`, mobile mail), a vague one (`INC0010003`),
@@ -121,7 +125,7 @@ than `SERVICENOW_FAKE` is needed; the webhook secret defaults to `fake-webhook-s
 ```sh
 cd plugins/servicenow/server
 uv sync --dev
-SERVICENOW_FAKE=1 uv run choregos-servicenow          # http://localhost:8080/mcp
+SERVICENOW_FAKE=1 CHOREGOS_SERVER_INSECURE_DEV=1 uv run choregos-servicenow   # http://localhost:8080/mcp
 curl localhost:8080/healthz
 uv run ruff check . && uv run ruff format --check . && uv run mypy --strict src && uv run pytest -q
 ```
@@ -131,7 +135,7 @@ Against a real instance (a Personal Developer Instance works):
 ```sh
 SERVICENOW_BASE_URL=https://dev12345.service-now.com SERVICENOW_AUTH=basic \
 SERVICENOW_USERNAME=choregos.integration SERVICENOW_PASSWORD=… \
-SERVICENOW_WEBHOOK_SECRET=… uv run choregos-servicenow
+SERVICENOW_WEBHOOK_SECRET=… CHOREGOS_SERVER_TOKEN=… uv run choregos-servicenow
 ```
 
 The image: `docker build -t servicenow-mcp plugins/servicenow/server` (non-root, port 8080, exec-form
