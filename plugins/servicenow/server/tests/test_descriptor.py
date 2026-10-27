@@ -27,6 +27,22 @@ TRACKER_TOOLS = {
     "tracker_list_candidates",
     "tracker_parse_event",
 }
+#: What plugin-server.schema.json cannot hold yet (the descriptor's comments say so): the arguments the
+#: platform fills (an idempotency key), and each compensation's arguments taken from the write's result.
+PLATFORM_ARGUMENTS = {
+    "add_work_note": {"action_key"},
+    "create_change_request": {"action_key"},
+    "tracker_create_item": {"action_key"},
+    "tracker_comment": {"action_key"},
+}
+COMPENSATION_ARGUMENTS = {
+    "update_record": {
+        "table": "{{ result.table }}",
+        "sys_id": "{{ result.sys_id }}",
+        "fields": "{{ result.previous }}",
+    },
+    "resolve_incident": {"sys_id": "{{ result.sys_id }}", "state": "{{ result.previous_state }}"},
+}
 
 
 def descriptor() -> dict[str, Any]:
@@ -46,7 +62,9 @@ async def test_every_served_tool_is_declared_and_nothing_else(server: MCPServer)
     for name, op in operations().items():
         assert op["access"] in ("read", "write"), name
         properties = set(served[name].input_schema.get("properties", {}))
-        assert set(op.get("platform_arguments", [])) <= properties, name
+        assert PLATFORM_ARGUMENTS.get(name, set()) <= properties, name
+        if name in PLATFORM_ARGUMENTS:
+            assert "action_key" in op.get("description", ""), name
 
 
 def test_the_three_customer_visible_or_irreversible_writes_need_a_person() -> None:
@@ -56,8 +74,9 @@ def test_the_three_customer_visible_or_irreversible_writes_need_a_person() -> No
 
 
 def test_compensations_name_declared_operations() -> None:
-    compensations = {name: op["compensation"]["operation"] for name, op in operations().items() if "compensation" in op}
+    compensations = {name: op["compensation"] for name, op in operations().items() if "compensation" in op}
     assert compensations == {"update_record": "update_record", "resolve_incident": "reopen_incident"}
+    assert set(COMPENSATION_ARGUMENTS) == set(compensations)
 
 
 def test_the_rest_of_the_descriptor() -> None:
@@ -99,15 +118,16 @@ async def test_the_declared_compensations_undo_their_write(mcp: Mcp) -> None:
     sys_id = sys_id_of("INC0010010")
     before = await mcp.call("get_record", table="incident", sys_id=sys_id)
     update = await mcp.call("update_record", table="incident", sys_id=sys_id, fields={"urgency": "1", "category": "x"})
-    comp = operations()["update_record"]["compensation"]
-    await mcp.call(comp["operation"], **render(comp["arguments"], update))
+    undo = operations()["update_record"]["compensation"]
+    await mcp.call(undo, **render(COMPENSATION_ARGUMENTS["update_record"], update))
     resolved = await mcp.call("resolve_incident", sys_id=sys_id, close_code="Solution provided", close_notes="n")
-    comp = operations()["resolve_incident"]["compensation"]
-    await mcp.call(comp["operation"], **render(comp["arguments"], resolved))
+    reopen = operations()["resolve_incident"]["compensation"]
+    reopen_arguments = COMPENSATION_ARGUMENTS["resolve_incident"]
+    await mcp.call(reopen, **render(reopen_arguments, resolved))
     after = await mcp.call("get_record", table="incident", sys_id=sys_id)
     for name in ("urgency", "category", "state", "priority"):
         assert after["fields"][name] == before["fields"][name], name
 
     # A resolution that changed nothing: its compensation changes nothing either.
     noop = await mcp.call("resolve_incident", sys_id=sys_id_of("INC0010007"), close_code="c", close_notes="n")
-    assert (await mcp.call(comp["operation"], **render(comp["arguments"], noop)))["reopened"] is False
+    assert (await mcp.call(reopen, **render(reopen_arguments, noop)))["reopened"] is False
