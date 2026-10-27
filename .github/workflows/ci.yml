@@ -31,6 +31,45 @@ jobs:
           done
           [ "$found" = 1 ] || echo "no server yet"
 
+  plugins:
+    # Every plugin through the core's own validator and packer (ADR 0093): manifest, agents, skills,
+    # templates, evals, procedures, servers; then `pack` twice must give the same bytes.
+    runs-on: ubuntu-latest
+    env:
+      # The head of feat/s43-02-plugin-loader, where `choregos plugin` lives today.
+      # TODO: move to the first core release tag that ships it (v0.21.0).
+      CHOREGOS_REF: 49fc8082170e1a44d919c0f1d040a9ee5058d380
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: VargaFoundation/choregos
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: validate and pack every plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen --package choregos-cli
+          out="$RUNNER_TEMP/packs"
+          mkdir -p "$out"
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/; do
+            [ -f "$dir/plugin.yaml" ] || continue
+            found=1
+            name=$(basename "$dir")
+            echo "::group::$name"
+            uv run --frozen --package choregos-cli choregos plugin validate "$dir"
+            uv run --frozen --package choregos-cli choregos plugin pack "$dir" -o "$out/$name-1.tar.gz"
+            uv run --frozen --package choregos-cli choregos plugin pack "$dir" -o "$out/$name-2.tar.gz"
+            cmp "$out/$name-1.tar.gz" "$out/$name-2.tar.gz" || { echo "::error::$name: pack is not reproducible"; exit 1; }
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no plugin yet"
+
   secrets:
     runs-on: ubuntu-latest
     steps:
@@ -63,7 +102,7 @@ jobs:
           [ "$missing" -eq 0 ] || { echo "$missing unsigned commit(s): git rebase --signoff $base"; exit 1; }
 
   ci-ok:
-    needs: [servers, secrets, dco]
+    needs: [servers, plugins, secrets, dco]
     if: always()
     runs-on: ubuntu-latest
     steps:
