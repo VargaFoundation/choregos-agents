@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: Apache-2.0
+# Incident triage under approval: queue → triage (agent) → review (service desk) → apply (platform) → done.
+#
+# - The triager only reads, and proposes. Any write it calls (work note, classification, and a comment or
+#   resolution when a published fix exists) is a governed action waiting in Approvals; nothing reaches
+#   ServiceNow from the run itself.
+# - The service desk reads the report and settles the classification in the review form; its values become
+#   the work item's fields. Rejecting sends the incident back to the queue, untouched.
+# - Apply writes the settled classification and the service desk's work note as ONE governed action,
+#   whose `update_record` effect is compensated (the previous values come back) if a later effect fails.
+# - A failed triage goes back to the queue untouched: the triager writes nothing on failure.
+#
+# The work item's `fields.sys_id` is the incident's sys_id, as the server's tracker profile returns it
+# (`tracker_fetch_item`, TRACKER_PROFILE.md).
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: incident-triage
+  version: 1
+  description: A ServiceNow incident triaged by an agent, reviewed by the service desk, and written back once approved.
+  # The work item's fields: `sys_id` and `table` come from the tracker (the incident), the others from the
+  # review form.
+  inputs:
+    type: object
+    properties:
+      sys_id: { type: string, title: Incident sys_id, pattern: "^[0-9a-f]{32}$" }
+      table: { type: string, title: Table }
+      category: { type: string, title: Category }
+      impact: { type: string, title: Impact, enum: ["1", "2", "3"] }
+      urgency: { type: string, title: Urgency, enum: ["1", "2", "3"] }
+      assignment_group: { type: string, title: Assignment group (sys_id), pattern: "^[0-9a-f]{32}$" }
+      triage_note: { type: string, title: Work note, maxLength: 4000 }
+initial: queue
+actors:
+  triager: { type: agent, role: triage, agent: itsm-triager, model: "profile:standard", max_turns: 30, max_minutes: 15 }
+  service_desk: { type: human, group: service-desk, sla_hours: 8 }
+  platform: { type: system }
+states:
+  queue: { display: In the queue, kind: wait, tracker: { status: New } }
+  awaiting_review: { display: Triage to review, kind: wait, tracker: { status: In Progress } }
+  approved: { display: Triage approved, tracker: { status: In Progress } }
+  done: { display: Triaged, terminal: true }
+  needs_human: { display: Needs a human, kind: wait }
+  abandoned: { display: Left to the service desk, terminal: true }
+transitions:
+  - id: t-triage
+    from: queue
+    to: awaiting_review
+    by: triager
+    outputs: [itsm_triage_markdown]
+    output_types: { itsm_triage_markdown: markdown }
+    gates: [outputs_present]
+    on_fail: { to: queue, max_attempts: 2, escalate_to: needs_human }
+
+  - id: t-review
+    from: awaiting_review
+    to: approved
+    by: service_desk
+    task:
+      title: Settle the triage
+      instructions: >-
+        Read the triage report. Decide the proposals waiting in Approvals (work note, classification,
+        and a customer comment or a resolution if one was proposed). Then fill in the classification you
+        settle on; it is written to the incident when you submit. Reject to send the incident back to the
+        queue untouched.
+      form:
+        type: object
+        required: [category, impact, urgency, assignment_group, triage_note]
+        properties:
+          category: { type: string, title: Category }
+          impact: { type: string, title: Impact, enum: ["1", "2", "3"] }
+          urgency: { type: string, title: Urgency, enum: ["1", "2", "3"] }
+          assignment_group: { type: string, title: Assignment group (sys_id), pattern: "^[0-9a-f]{32}$" }
+          triage_note: { type: string, title: Work note, minLength: 1, maxLength: 4000 }
+      attest: I reviewed the triage and the classification I settle on
+    on_reject: queue
+
+  - id: t-apply
+    from: approved
+    to: done
+    by: platform
+    action:
+      kind: servicenow.apply_triage
+      title: "Apply the triage of {{ work_item.key }}"
+      justification: approved by the service desk
+      params:
+        sys_id: "{{ fields.sys_id }}"
+        category: "{{ fields.category }}"
+        impact: "{{ fields.impact }}"
+        urgency: "{{ fields.urgency }}"
+        assignment_group: "{{ fields.assignment_group }}"
+        note: "{{ fields.triage_note }}"
+      effects:
+        - effect: connector.call
+          with:
+            connector: servicenow
+            operation: update_record
+            arguments:
+              table: incident
+              sys_id: "{{ params.sys_id }}"
+              fields:
+                category: "{{ params.category }}"
+                impact: "{{ params.impact }}"
+                urgency: "{{ params.urgency }}"
+                assignment_group: "{{ params.assignment_group }}"
+        - effect: connector.call
+          with:
+            connector: servicenow
+            operation: add_work_note
+            arguments: { table: incident, sys_id: "{{ params.sys_id }}", text: "{{ params.note }}" }
+    on_fail: { to: approved, max_attempts: 2, escalate_to: needs_human }
+
+  - id: t-abandon
+    from: needs_human
+    to: abandoned
+    by: service_desk
+    timeout_hours: 168
+defaults:
+  from_any_agent_state:
+    on_question: needs_human
+    on_budget_exceeded: needs_human
+    on_timeout: needs_human
+  needs_human:
+    on_answer: resume
+    on_abandon: abandoned

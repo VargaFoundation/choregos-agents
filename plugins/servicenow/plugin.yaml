@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# The ServiceNow plugin (ADR 0093, plan S43 Decision 7): an agent that triages incidents under human
+# approval, the MCP server it reads and writes through, the template that wires them into a project,
+# and the procedure an administrator follows on the instance.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: servicenow
+  version: 0.1.0
+  publisher: Varga Foundation
+  license: Apache-2.0
+  description: >-
+    Triage ServiceNow incidents under human approval: an agent reads the incident, its CI and similar
+    incidents, cites knowledge articles, and proposes a classification and actions that the service
+    desk approves before anything is written.
+  homepage: https://github.com/VargaFoundation/choregos-agents
+  # Plugins arrive with the core release after 0.20.5 (stream S43).
+  core: ">=0.21.0,<0.23.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  agents: [agents/itsm-triager.yaml]
+  skills: [skills/servicenow-triage]
+  templates: [templates/itsm-incident-triage]
+  evals: [evals/itsm-triager.yaml]
+  procedures: ["procedures/*.md"]
+  servers: [servers/servicenow.yaml]
