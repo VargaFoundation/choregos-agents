@@ -36,9 +36,9 @@ jobs:
     # templates, evals, procedures, servers; then `pack` twice must give the same bytes.
     runs-on: ubuntu-latest
     env:
-      # The head of feat/s43-07-plugin-tracker (carries #1031 and #1032); move to a release tag once merged.
+      # main after the S43 merge (#1033); move to a release tag once one carries it.
       # TODO: move to the first core release tag that ships it (v0.21.0).
-      CHOREGOS_REF: 2dd663f3b4af81473abb747ac58a723156eaf795
+      CHOREGOS_REF: 3156d12eabb7dc11fd54d821604cb1efb0033b04
     steps:
       - uses: actions/checkout@v4
         with: { path: agents }
