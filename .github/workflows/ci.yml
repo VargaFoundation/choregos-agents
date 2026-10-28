@@ -101,8 +101,33 @@ jobs:
           done <<< "$(git rev-list "$base..$tip")"
           [ "$missing" -eq 0 ] || { echo "$missing unsigned commit(s): git rebase --signoff $base"; exit 1; }
 
+  publication:
+    # scripts/publish.py, which publish.yml runs on main only: its tests against an in-memory registry,
+    # then every plugin of the tree staged, packed and indexed offline (no registry, docker nor cosign).
+    runs-on: ubuntu-latest
+    env:
+      CHOREGOS_REF: 3156d12eabb7dc11fd54d821604cb1efb0033b04
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: VargaFoundation/choregos
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: publish, tested and dry-run
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen --package choregos-cli
+          uv run --frozen --package choregos-cli --with pytest pytest -q "$GITHUB_WORKSPACE/agents/scripts/tests"
+          uv run --frozen --package choregos-cli python "$GITHUB_WORKSPACE/agents/scripts/publish.py" \
+            "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/vargafoundation/choregos-agents --offline
+
   ci-ok:
-    needs: [servers, plugins, secrets, dco]
+    needs: [servers, plugins, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:
