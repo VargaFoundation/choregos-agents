@@ -1,0 +1,28 @@
+{
+ "files": {
+  "SKILL.md": {
+   "origin": "written for Choregos (Apache-2.0), summarising MADR 4.0.0",
+   "sha256": "3a68add6454bbce84c8ee03e6192aa6978711176e1184c57251c509b12594c5f"
+  },
+  "template-minimal.md": {
+   "origin": "adapted from template/adr-template-minimal.md",
+   "sha256": "e11465409bea1c9484b8b9d07670440b917c75e1570fb70ec93bba58eeba991d"
+  },
+  "template.md": {
+   "origin": "adapted from template/adr-template.md",
+   "sha256": "5d6f0ea57b88979e02a1bb46d4304863e554f116e20658f924f38cb2a06d4a22"
+  }
+ },
+ "from_core": "VargaFoundation/choregos packages/core/src/choregos_core/catalogue_d_agents/skills/madr-4 at 3156d12eabb7dc11fd54d821604cb1efb0033b04; SKILL.md and both templates byte-identical",
+ "id": "madr-4",
+ "licence": "MIT OR CC0-1.0",
+ "licence_file": {
+  "name": "LICENSE.MIT",
+  "scope": "repository",
+  "sha256": "a2eef9f0961adab958f4cfa85f65c2864bab694620919cfda402382783bc0c8d",
+  "stored_as": "LICENSE"
+ },
+ "ref": "4.0.0",
+ "repo": "https://github.com/adr/madr",
+ "sha": "2475fe1973f66a12aaf58a91d8fa7b42c0f5ea3d"
+}

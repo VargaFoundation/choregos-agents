@@ -69,6 +69,14 @@ jobs:
             echo "::endgroup::"
           done
           [ "$found" = 1 ] || echo "no plugin yet"
+      - name: the core's catalogue, unchanged in the plugins
+        # The agents, evals and skills moved from the core (A-03) load exactly as the core's own entries.
+        # Remove once the core no longer ships its built-in catalogue (S43-09).
+        shell: bash
+        run: |
+          cd core
+          uv run --frozen --package choregos-cli python \
+            "$GITHUB_WORKSPACE/agents/scripts/check_core_parity.py" "$GITHUB_WORKSPACE/agents/plugins"
 
   secrets:
     runs-on: ubuntu-latest

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# The external MCP clients of the core's built-in catalogue (ADR 0040, ADR 0033), as a plugin (A-03): the
+# assistants and editors that act through the MCP door with their person's rights, never more.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: mcp-clients
+  version: 1.0.0
+  publisher: Varga Foundation
+  license: Apache-2.0
+  description: >-
+    Registry entries for the assistants and editors that reach Choregos through its MCP door —
+    ChatGPT, Claude (claude.ai, Claude Code, Claude Desktop), GitHub Copilot in VS Code and Cursor
+    — each acting with its person's rights, never more, and never deciding.
+  homepage: https://github.com/VargaFoundation/choregos-agents
+  # 0.20.6, the latest core release, was tagged before the plugin installer (S43); 0.21.0 is the first
+  # release that installs plugins. These agents need only the catalogue entry shape (ADR 0040) and the
+  # work-item context the core prepends to their instructions, both stable across 0.x.
+  core: ">=0.21.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  agents:
+    - agents/chatgpt.yaml
+    - agents/claude-ai.yaml
+    - agents/claude-code.yaml
+    - agents/claude-desktop.yaml
+    - agents/copilot-vscode.yaml
+    - agents/cursor.yaml

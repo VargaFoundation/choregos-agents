@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# The network operations agent of the core's built-in catalogue (ADR 0040, ADR 0052), as a plugin (A-03).
+# It reads the organisation's pfSense, Cilium/Hubble and nginx connectors; every change it proposes is code.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: netops
+  version: 1.0.0
+  publisher: Varga Foundation
+  license: Apache-2.0
+  description: >-
+    Diagnoses network behaviour from flows, network policies, firewall rules and reverse-proxy
+    configuration, through the organisation's pfSense, Cilium and nginx connectors, and proposes
+    every change as code that a person approves; it never applies one.
+  homepage: https://github.com/VargaFoundation/choregos-agents
+  # 0.20.6, the latest core release, was tagged before the plugin installer (S43); 0.21.0 is the first
+  # release that installs plugins. These agents need only the catalogue entry shape (ADR 0040) and the
+  # work-item context the core prepends to their instructions, both stable across 0.x.
+  core: ">=0.21.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+  # The organisation's MCP connectors `netops` names in `mcp_servers`, by name.
+  org_connectors:
+    pfsense: mcp
+    cilium: mcp
+    nginx: mcp
+contents:
+  agents:
+    - agents/netops.yaml
+  evals:
+    - evals/netops.yaml
