@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+# The software delivery agents of the core's built-in catalogue (ADR 0040), as one plugin (A-03): every
+# agent the core's delivery templates name, from triage to the production check. Each agent file is the
+# core's entry, unchanged.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: software-delivery
+  version: 1.0.0
+  publisher: Varga Foundation
+  license: Apache-2.0
+  description: >-
+    The agents of a governed software delivery, from the core's built-in catalogue: triage,
+    research, specification, plan, architecture decision records (MADR 4), implementation, CI
+    fixes, code and security review, tests, QA with mutation testing, supply-chain and compliance
+    review, UX and accessibility review, documentation, release notes, release readiness and the
+    production go or no-go.
+  homepage: https://github.com/VargaFoundation/choregos-agents
+  # 0.20.6, the latest core release, was tagged before the plugin installer (S43); 0.21.0 is the first
+  # release that installs plugins. These agents need only the catalogue entry shape (ADR 0040) and the
+  # work-item context the core prepends to their instructions, both stable across 0.x.
+  core: ">=0.21.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  agents:
+    - agents/architect.yaml
+    - agents/ci-fixer.yaml
+    - agents/compliance.yaml
+    - agents/developer.yaml
+    - agents/devops.yaml
+    - agents/docs-writer.yaml
+    - agents/planner.yaml
+    - agents/prod-verifier.yaml
+    - agents/qa.yaml
+    - agents/release-notes-writer.yaml
+    - agents/researcher.yaml
+    - agents/review-responder.yaml
+    - agents/reviewer.yaml
+    - agents/secops.yaml
+    - agents/security-reviewer.yaml
+    - agents/spec-writer.yaml
+    - agents/tester.yaml
+    - agents/triager.yaml
+    - agents/ux-designer.yaml
+  skills:
+    - skills/madr-4
+  evals:
+    - evals/architect-accept.yaml
+    - evals/architect.yaml
+    - evals/ci-fixer.yaml
+    - evals/compliance.yaml
+    - evals/developer.yaml
+    - evals/devops-verify.yaml
+    - evals/devops.yaml
+    - evals/docs-writer.yaml
+    - evals/planner.yaml
+    - evals/prod-verifier-with-indicators.yaml
+    - evals/prod-verifier.yaml
+    - evals/qa.yaml
+    - evals/release-notes-writer.yaml
+    - evals/researcher.yaml
+    - evals/review-responder.yaml
+    - evals/reviewer.yaml
+    - evals/secops.yaml
+    - evals/security-reviewer.yaml
+    - evals/spec-writer.yaml
+    - evals/tester.yaml
+    - evals/triager.yaml
+    - evals/ux-designer.yaml

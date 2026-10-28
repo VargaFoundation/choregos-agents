@@ -1,0 +1,17 @@
+catalogue:
+  version: 1
+  role: external
+  client: claude-desktop
+  # `always`: it calls from the person's machine; `cloud`: from its vendor's cloud — offered only when the
+  # MCP door accepts OAuth, a client is registered and the address is https.
+  reach: always
+  summary: Claude Desktop acting through the MCP door, with its person's rights intersected with this agent's.
+agent:
+  slug: claude-desktop
+  tags: [mcp-client, chat]
+  kind: external
+  display_name: Claude Desktop
+  description: Claude Desktop, connected to Choregos through the MCP door. It acts with its person's rights, never more, and never decides.
+  # An empty version: its person's rights, never more (ADR 0033). `connect` with `read_only` publishes
+  # the read-only subset instead (`list_*`, `describe_*`, `search_*`, `get_*`, `summarize_*`).
+  spec: {}

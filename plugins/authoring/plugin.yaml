@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# The agents of the core's built-in catalogue (ADR 0040) that write the organisation's own agents and skills,
+# as a plugin (A-03): the agent drafter and the knowledge distiller. Each agent file is the core's entry,
+# unchanged.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: authoring
+  version: 1.0.0
+  publisher: Varga Foundation
+  license: Apache-2.0
+  description: >-
+    Agents that author for the organisation: one drafts an agent (instructions, suggested skills,
+    knowledge and connectors, a sample, eval cases) from a person's description; the other compiles
+    a knowledge base into a principles skill, each principle citing its documents. A person reviews
+    both.
+  homepage: https://github.com/VargaFoundation/choregos-agents
+  # 0.20.6, the latest core release, was tagged before the plugin installer (S43); 0.21.0 is the first
+  # release that installs plugins. These agents need only the catalogue entry shape (ADR 0040) and the
+  # work-item context the core prepends to their instructions, both stable across 0.x.
+  core: ">=0.21.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  agents:
+    - agents/agent-drafter.yaml
+    - agents/knowledge-distiller.yaml
+  evals:
+    - evals/agent-drafter.yaml
+    - evals/knowledge-distiller.yaml
