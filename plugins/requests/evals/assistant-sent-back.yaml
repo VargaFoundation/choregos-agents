@@ -1,0 +1,8 @@
+agent: assistant
+description: A deliverable sent back is reworked from the person's reason first.
+inputs:
+  human_feedback: The table misses the 2025 figures.
+must_contain:
+- sent your previous deliverable back
+- the table misses the 2025 figures.
+- address their reason first
