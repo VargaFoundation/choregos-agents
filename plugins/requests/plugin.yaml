@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: requests
-  version: 1.0.0
+  version: 1.0.1
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -15,8 +15,10 @@ metadata:
     the deliverable the approved brief asks for, citing its sources, and a person accepts it or sends it
     back.
   homepage: https://github.com/VargaFoundation/choregos-agents
-  # `default-request` and the `brief` and `deliver` roles ship with the first core release after 0.21.0.
-  core: ">0.21.0,<1.0.0"
+  # 1.0.1 admits 0.21.0: a core built from main after that release reports 0.21.0 and already runs
+  # `default-request`. On the 0.21.0 release itself, which has neither the workflow nor the `brief` and
+  # `deliver` playbooks, the agents install and wait unused: a catalogue role is a label there.
+  core: ">=0.21.0,<1.0.0"
 requires:
   plugins: []
   connectors: {}
