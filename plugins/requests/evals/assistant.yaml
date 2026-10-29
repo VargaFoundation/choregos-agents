@@ -1,0 +1,14 @@
+agent: assistant
+description: Follows the brief, cites every fact, claims nothing outside its tools, ends with an acceptance check.
+must_contain:
+- follow the brief
+- cite every fact
+- knowledge/<base>/<file>
+- you send no
+- sign nothing
+- acceptance check
+- ask_human
+- '"deliverable_markdown"'
+must_not_contain:
+- allowed_paths
+- sent your previous deliverable back

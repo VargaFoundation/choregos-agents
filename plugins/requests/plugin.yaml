@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# The agents of the core's `default-request` workflow (ADR 0110), the workflow a project without a repository
+# receives: one writes the brief a person approves, the other produces the deliverable it asks for. Their
+# instructions are the core's `brief` and `deliver` playbooks (VargaFoundation/choregos#1091).
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: requests
+  version: 1.0.0
+  publisher: Varga Foundation
+  license: Apache-2.0
+  description: >-
+    Agents for requests from any trade, with no repository: one turns a request into a brief a person
+    approves (need, expected deliverable, acceptance criteria, out of scope, sources); the other produces
+    the deliverable the approved brief asks for, citing its sources, and a person accepts it or sends it
+    back.
+  homepage: https://github.com/VargaFoundation/choregos-agents
+  # `default-request` and the `brief` and `deliver` roles ship with the first core release after 0.21.0.
+  core: ">0.21.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  agents:
+    - agents/assistant.yaml
+    - agents/brief-writer.yaml
+  evals:
+    - evals/assistant.yaml
+    - evals/assistant-sent-back.yaml
+    - evals/brief-writer.yaml
