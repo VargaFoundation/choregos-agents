@@ -22,7 +22,10 @@ from choregos_core.plugins import opened, plugin_files  # noqa: E402
 REPO = Path(__file__).resolve().parents[2]
 REGISTRY = "ghcr.io/vargafoundation/choregos-agents"
 #: The servicenow plugin these tests publish, at the version its manifest holds.
-VERSION = yaml.safe_load((REPO / "plugins" / "servicenow" / "plugin.yaml").read_text())["metadata"]["version"]
+MANIFEST = yaml.safe_load((REPO / "plugins" / "servicenow" / "plugin.yaml").read_text())
+VERSION = MANIFEST["metadata"]["version"]
+#: The core range its manifest declares, carried into the release index as is.
+CORE_RANGE = MANIFEST["metadata"]["core"]
 
 
 class FakeRegistry(publish.Registry):
@@ -128,7 +131,7 @@ def test_a_first_run_builds_pins_packs_pushes_signs_and_indexes(plugins: Path, t
     release = index["plugins"]["servicenow"]["versions"][VERSION]
     assert release["digest"] == digest
     assert release["oci"] == f"{REGISTRY}/servicenow:{VERSION}"
-    assert release["core"] == ">=0.21.0,<0.23.0"
+    assert release["core"] == CORE_RANGE
     assert set(index["plugins"]) == {"hello", "servicenow"}
     signed = set(registry.signed)
     assert f"{image}@{built}" in signed
