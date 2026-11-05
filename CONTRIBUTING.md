@@ -30,7 +30,9 @@ plugins/<name>/
 ## Checks
 
 Every pull request runs `choregos plugin validate` and a reproducible `pack` on each plugin, the tests
-of each server, the publication script's tests and an offline dry run of it, gitleaks and the DCO.
+of each server, the ServiceNow plugin's cases of the core's tool-script matrix (`evals/matrix/`) played
+through the core's doors and judged by its case judge, the publication script's tests and an offline dry
+run of it, gitleaks and the DCO.
 
 ## Publishing
 

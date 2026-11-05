@@ -78,6 +78,36 @@ jobs:
           uv run --frozen --package choregos-cli python \
             "$GITHUB_WORKSPACE/agents/scripts/check_core_parity.py" "$GITHUB_WORKSPACE/agents/plugins"
 
+  matrix:
+    # The ServiceNow plugin's cases of the core's tool-script matrix (plugins/servicenow/evals/matrix/, the
+    # core's agent-case format, S57-09): each played in its cells through the core's real doors on the
+    # server's fake instance, and judged by the core's case judge. Needs the core's whole workspace (the
+    # orchestrator's door player, the playbooks' judge, the runner's generated client) and the server's
+    # source on the path.
+    runs-on: ubuntu-latest
+    env:
+      # core main after S57-09 and S57-11a, which hold the doors and the judge the cases are played by;
+      # move to the first core release tag that ships them.
+      CHOREGOS_MATRIX_REF: f90c9b6c6528ee2faa2cc42c4af17b1f8dcddf79
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: VargaFoundation/choregos
+          ref: ${{ env.CHOREGOS_MATRIX_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play and judge the matrix cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          PYTHONPATH="$GITHUB_WORKSPACE/agents/plugins/servicenow/server/src" \
+            uv run --frozen pytest -q -p no:cacheprovider \
+            "$GITHUB_WORKSPACE/agents/plugins/servicenow/server/tests/test_matrix_cases.py"
+
   secrets:
     runs-on: ubuntu-latest
     steps:
@@ -135,7 +165,7 @@ jobs:
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/vargafoundation/choregos-agents --offline
 
   ci-ok:
-    needs: [servers, plugins, secrets, dco, publication]
+    needs: [servers, plugins, matrix, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -9,6 +9,8 @@ which is what proves a caller's term cannot change the query.
 The seed: twelve incidents (a duplicate pair, a vague one, a VIP caller, one whose description carries a
 prompt injection, resolved ones to be found as similar), a request item, a change, a problem, CIs with
 their relations, knowledge articles in every workflow state, groups, users and the `sys_choice` states.
+Beside them, the datasets of the core's tool-script matrix (`evals/matrix/`): E3, a VPN incident whose
+ten similar incidents include two resolved by the same change, and C1, a vague "the application is slow".
 """
 
 from __future__ import annotations
@@ -442,6 +444,7 @@ def seed(fake: FakeServiceNow) -> None:
         ("vpn-gw-01", "cmdb_ci_netgear", "Network", "VPN gateway"),
         ("lb-01", "cmdb_ci_lb", "Network", "Load balancer"),
         ("app-payroll", "cmdb_ci_appl", "Database", "Payroll application"),
+        ("vpn-lyon-01", "cmdb_ci_netgear", "Network", "VPN concentrator, Lyon site"),
     ):
         ins("cmdb_ci", {"sys_id": sys_id_of(f"ci:{ci}"), "name": ci, "sys_class_name": cls,
                         "operational_status": "1", "install_status": "1", "ip_address": "",
@@ -468,6 +471,12 @@ def seed(fake: FakeServiceNow) -> None:
          "Month-end batch jobs load db-prod-01. Run reports outside 08:00-10:00.", "published"),
         ("KB0010004", "VPN client reinstall (draft)", "Draft procedure, not reviewed.", "draft"),
         ("KB0010005", "VPN on the old concentrator", "Obsolete: the old concentrator is gone.", "retired"),
+        ("KB0010042", "VPN to the Lyon site drops: check the MTU on the Lyon concentrator",
+         "Symptom: VPN tunnels of the Lyon site drop and come back on their own; large transfers and video "
+         "calls fail first. Cause: packets over 1400 bytes are fragmented between the site and its "
+         "concentrator, vpn-lyon-01. Fix: set the MTU to 1400 on the Lyon concentrator, as CHG0003311 did. "
+         "A firmware upgrade of the concentrator resets the MTU to 1500: check it after each upgrade.",
+         "published"),
     ):  # fmt: skip
         ins("kb_knowledge", {"sys_id": sys_id_of(number), "number": number, "short_description": title,
                              "text": text, "workflow_state": state, "kb_category": "", "valid_to": "2100-01-01",
@@ -640,3 +649,124 @@ def seed(fake: FakeServiceNow) -> None:
                               "name": "incident", "element": "comments",
                               "value": "We are looking into it, thank you for your patience.",
                               "sys_created_on": _ago(1.4), "sys_created_by": "beth.anglin"})  # fmt: skip
+
+    seed_matrix(fake, incident)
+
+
+def seed_matrix(fake: FakeServiceNow, incident: Callable[..., None]) -> None:
+    """The datasets of the core's tool-script matrix (`evals/matrix/`, core issue #1372).
+
+    E3: `INC0012345`, the Lyon site's VPN on its concentrator `vpn-lyon-01`. `similar_incidents` finds ten
+    incidents resolved in the last 90 days: `INC0010007` and the nine below. Two of them, `INC0012102` and
+    `INC0012160`, were resolved by `CHG0003311`, the MTU lowered on the Lyon concentrator, which the
+    published `KB0010042` documents; the concentrator's firmware was upgraded since. The nine say neither
+    "every", "minutes" nor "disconnects" (the terms of `INC0010006`), "mail" (`INC0010009`'s), "application"
+    nor "slow" (`INC0012399`'s): what those incidents find as similar is unchanged.
+
+    C1: `INC0012399` "The application is slow", no CI and no application named. Its similar incident is a
+    database one (`INC0010012`) and `KB0010003` matches its words: neither is a fix for it.
+    """
+    ins = fake.insert
+
+    def journal(number: str, *entries: tuple[str, str, float, str]) -> None:
+        for seq, (element, value, days, author) in enumerate(entries, start=1):
+            ins("sys_journal_field", {"sys_id": sys_id_of(f"journal:{number}:{seq}"), "element_id": sys_id_of(number),
+                                      "name": "incident", "element": element, "value": value,
+                                      "sys_created_on": _ago(days), "sys_created_by": author})  # fmt: skip
+
+    incident(
+        "INC0012345",
+        "VPN drops every 10 minutes for the Lyon site",
+        "Since Monday the remote staff of the Lyon site lose the VPN about every ten minutes; the tunnel comes "
+        "back by itself. Large transfers fail first.",
+        state="2",
+        group="Network",
+        caller="david.miller",
+        ci="vpn-lyon-01",
+        category="network",
+        impact="2",
+        urgency="2",
+        created_days=0.4,
+    )
+    journal(
+        "INC0012345",
+        ("work_notes", "Planned maintenance last weekend: the Lyon concentrator's firmware was upgraded.", 0.3,
+         "beth.anglin"),
+    )  # fmt: skip
+    for number, title, description, state, ci, group, created, resolved, close_notes in (
+        ("INC0012102", "Lyon site: VPN drops during large file transfers",
+         "Copies to the head-office share fail half-way and the tunnel reconnects by itself.",
+         "7", "vpn-lyon-01", "Network", 66, 61,
+         "Fixed by CHG0003311: MTU lowered to 1400 on the Lyon concentrator."),
+        ("INC0012160", "VPN unstable for the remote staff of the Lyon site",
+         "Remote users of the Lyon site lose the tunnel several times an hour; video calls freeze first.",
+         "6", "vpn-lyon-01", "Network", 64, 61,
+         "Same cause as INC0012102, fixed by CHG0003311 (MTU 1400 on the Lyon concentrator)."),
+        ("INC0012187", "Lyon site: VPN client asks for credentials again",
+         "The VPN client prompts for the password again after the tunnel drops.",
+         "6", None, "Service Desk", 55, 54, "The user's password had expired; reset by the service desk."),
+        ("INC0012203", "VPN drops at the Lyon site after a laptop update",
+         "Since the network driver update, the VPN drops when the laptop roams between access points.",
+         "7", None, "Service Desk", 48, 45, "Network driver rolled back on the laptop; the tunnel holds."),
+        ("INC0012219", "Lyon site internet link down",
+         "No internet nor VPN at the Lyon site this morning; the provider reports an outage.",
+         "7", None, "Network", 40, 39.8, "Outage of the Lyon site's internet link, restored by the provider."),
+        ("INC0012240", "VPN certificate warning at the Lyon site",
+         "Users of the Lyon site see a certificate warning when the tunnel reconnects.",
+         "6", "vpn-lyon-01", "Network", 33, 32, "The concentrator's certificate had expired; renewed."),
+        ("INC0012268", "Home Wi-Fi drops the VPN for a Lyon site employee",
+         "One user working from home loses the tunnel; the others are fine.",
+         "7", None, "Service Desk", 25, 22,
+         "The user's home router was replaced by their provider; nothing on our side."),
+        ("INC0012291", "VPN drops at the Lyon site", "Same as INC0012268.",
+         "7", None, "Service Desk", 23, 22.5, "Duplicate of INC0012268."),
+        ("INC0012318", "Lyon site VPN client crashes on start",
+         "The VPN client closes as soon as it starts on two laptops of the Lyon site.",
+         "6", None, "Service Desk", 12, 11, "VPN client reinstalled in its current version."),
+    ):  # fmt: skip
+        incident(number, title, description, state=state, group=group, ci=ci, category="network",
+                 created_days=created, resolved_days=resolved, close_notes=close_notes)  # fmt: skip
+    journal(
+        "INC0012102",
+        ("work_notes", "Packet capture on vpn-lyon-01: packets over 1400 bytes are fragmented and dropped. "
+         "CHG0003311 raised to lower the MTU.", 63, "beth.anglin"),
+        ("work_notes", "CHG0003311 implemented: large copies complete, the tunnel holds.", 61, "beth.anglin"),
+    )  # fmt: skip
+    journal(
+        "INC0012160",
+        ("work_notes", "Same capture as INC0012102; waiting for CHG0003311.", 62, "beth.anglin"),
+        ("comments", "The fix on the Lyon VPN is in place, thank you for your patience.", 61, "beth.anglin"),
+    )  # fmt: skip
+    journal("INC0012187", ("work_notes", "Password expired on the day of the drop; reset.", 54, "fred.luddy"))
+    journal("INC0012203", ("work_notes", "Driver 22.1 rolled back to 21.4.", 45, "fred.luddy"))
+    journal("INC0012219", ("work_notes", "Provider ticket opened; link back at 11:40.", 39.8, "beth.anglin"))
+    journal("INC0012240", ("work_notes", "Certificate renewed on the concentrator.", 32, "beth.anglin"))
+    journal(
+        "INC0012268",
+        ("comments", "Your provider replaced your router; tell us if the drops come back.", 22, "fred.luddy"),
+    )
+    journal("INC0012291", ("work_notes", "Closed as a duplicate of INC0012268.", 22.5, "fred.luddy"))
+    journal("INC0012318", ("work_notes", "Client 5.2 reinstalled on both laptops.", 11, "fred.luddy"))
+    ins("change_request", {"sys_id": sys_id_of("CHG0003311"), "number": "CHG0003311",
+                           "short_description": "Lower the MTU to 1400 on the Lyon VPN concentrator",
+                           "description": "Tunnels of the Lyon site drop when packets over 1400 bytes are "
+                                          "fragmented: INC0012102, INC0012160.",
+                           "state": "3", "type": "normal", "risk": "3", "impact": "2", "urgency": "2",
+                           "priority": "3", "category": "Network", "assignment_group": sys_id_of("group:Network"),
+                           "assigned_to": "", "cmdb_ci": sys_id_of("ci:vpn-lyon-01"), "start_date": _ago(62),
+                           "end_date": _ago(61), "justification": "The remote staff of a whole site.",
+                           "implementation_plan": "Set the tunnel interface's MTU to 1400 on vpn-lyon-01.",
+                           "backout_plan": "Set it back to 1500.", "test_plan": "Copy a 1 GB file from the site.",
+                           "correlation_id": "", "close_code": "successful",
+                           "close_notes": "MTU 1400 on vpn-lyon-01; tunnels stable for 48 hours.",
+                           "active": "false", "sys_created_on": _ago(63), "sys_updated_on": _ago(61),
+                           "sys_mod_count": "4"})  # fmt: skip
+
+    incident(
+        "INC0012399",
+        "The application is slow",
+        "It has been slow since this morning. Please look at it.",
+        caller="david.miller",
+        created_days=0.05,
+    )
+    journal("INC0012399", ("comments", "Still slow, I cannot work like this.", 0.02, "david.miller"))

@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: servicenow
-  version: 0.1.0
+  version: 0.1.1
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -15,7 +15,7 @@ metadata:
     desk approves before anything is written.
   homepage: https://github.com/VargaFoundation/choregos-agents
   # Plugins arrive with the core release after 0.20.5 (stream S43).
-  core: ">=0.21.0,<0.23.0"
+  core: ">=0.21.0,<1.0.0"
 requires:
   plugins: []
   connectors: {}

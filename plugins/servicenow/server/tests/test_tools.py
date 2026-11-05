@@ -117,7 +117,8 @@ async def test_get_ci_by_name_and_its_relations(mcp: Mcp) -> None:
 
 async def test_search_knowledge_returns_published_articles_only(mcp: Mcp) -> None:
     result = await mcp.call("search_knowledge", terms=["VPN"])
-    assert [a["fields"]["number"] for a in result["articles"]] == ["KB0010002"]
+    # KB0010004 (draft) and KB0010005 (retired) say VPN too.
+    assert [a["fields"]["number"] for a in result["articles"]] == ["KB0010002", "KB0010042"]
 
 
 async def test_similar_incidents_from_an_incident(mcp: Mcp) -> None:
@@ -240,13 +241,14 @@ async def test_create_change_request_is_idempotent(mcp: Mcp, fake: FakeServiceNo
         "cmdb_ci": sys_id_of("ci:vpn-gw-01"),
         "action_key": "act-42",
     }
+    seeded = len(fake.rows("change_request"))
     first = await mcp.call("create_change_request", **arguments)
     again = await mcp.call("create_change_request", **arguments)
     assert first["created"] is True
     assert again["created"] is False
     assert first["record"]["sys_id"] == again["record"]["sys_id"]
     assert first["correlation_id"] == "choregos:act-42"
-    assert len(fake.rows("change_request")) == 2  # the seeded one and this one
+    assert len(fake.rows("change_request")) == seeded + 1
     assert first["record"]["fields"]["number"].startswith("CHG")
 
 
@@ -260,11 +262,12 @@ async def test_the_platform_action_key_is_the_change_correlation_id(mcp: Mcp, fa
         "backout_plan": "Reinstall the old one.",
         "test_plan": "Connect from a laptop.",
     }
+    seeded = len(fake.rows("change_request"))
     first = await mcp.call("create_change_request", **arguments, correlation_id="agent-1", action_key="0123abcd")
     again = await mcp.call("create_change_request", **arguments, correlation_id="agent-2", action_key="0123abcd")
     assert first["correlation_id"] == again["correlation_id"] == "choregos:0123abcd"
     assert (first["created"], again["created"]) == (True, False)
-    assert len(fake.rows("change_request")) == 2
+    assert len(fake.rows("change_request")) == seeded + 1
 
 
 async def test_update_record_takes_its_fields_as_json_text(mcp: Mcp) -> None:

@@ -21,6 +21,11 @@ from choregos_core.plugins import opened, plugin_files  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 REGISTRY = "ghcr.io/vargafoundation/choregos-agents"
+#: The servicenow plugin these tests publish, at the version its manifest holds.
+MANIFEST = yaml.safe_load((REPO / "plugins" / "servicenow" / "plugin.yaml").read_text())
+VERSION = MANIFEST["metadata"]["version"]
+#: The core range its manifest declares, carried into the release index as is.
+CORE_RANGE = MANIFEST["metadata"]["core"]
 
 
 class FakeRegistry(publish.Registry):
@@ -113,9 +118,9 @@ def test_a_first_run_builds_pins_packs_pushes_signs_and_indexes(plugins: Path, t
     assert _run(plugins, registry, tmp_path) == 0
 
     image = f"{REGISTRY}/servicenow-mcp"
-    assert registry.built == [f"{image}:0.1.0"]
-    built = registry.tags[f"{image}:0.1.0"][0]
-    archive = tmp_path / "work" / "out" / "servicenow-0.1.0.tar.gz"
+    assert registry.built == [f"{image}:{VERSION}"]
+    built = registry.tags[f"{image}:{VERSION}"][0]
+    archive = tmp_path / "work" / "out" / f"servicenow-{VERSION}.tar.gz"
     with opened(archive) as packed:
         assert packed.servers["servicenow"]["image"] == f"{image}@{built}"
         digest = packed.digest
@@ -123,14 +128,14 @@ def test_a_first_run_builds_pins_packs_pushes_signs_and_indexes(plugins: Path, t
     assert publish.PLACEHOLDER in (plugins / "servicenow" / "servers" / "servicenow.yaml").read_text()
 
     index = _index(registry)
-    release = index["plugins"]["servicenow"]["versions"]["0.1.0"]
+    release = index["plugins"]["servicenow"]["versions"][VERSION]
     assert release["digest"] == digest
-    assert release["oci"] == f"{REGISTRY}/servicenow:0.1.0"
-    assert release["core"] == ">=0.21.0,<0.23.0"
+    assert release["oci"] == f"{REGISTRY}/servicenow:{VERSION}"
+    assert release["core"] == CORE_RANGE
     assert set(index["plugins"]) == {"hello", "servicenow"}
     signed = set(registry.signed)
     assert f"{image}@{built}" in signed
-    assert f"{REGISTRY}/servicenow@{registry.tags[f'{REGISTRY}/servicenow:0.1.0'][0]}" in signed
+    assert f"{REGISTRY}/servicenow@{registry.tags[f'{REGISTRY}/servicenow:{VERSION}'][0]}" in signed
     assert f"{REGISTRY}/index@{registry.tags[f'{REGISTRY}/index:latest'][0]}" in signed
 
 
@@ -169,11 +174,11 @@ def test_a_new_version_joins_the_index_and_the_old_one_stays(plugins: Path, tmp_
 
 def test_an_image_already_pushed_is_reused(plugins: Path, tmp_path: Path) -> None:
     registry = FakeRegistry()
-    tag = f"{REGISTRY}/servicenow-mcp:0.1.0"
+    tag = f"{REGISTRY}/servicenow-mcp:{VERSION}"
     registry.tags[tag] = ("sha256:" + "a" * 64, "image", b"")  # a run that stopped after the image
     assert _run(plugins, registry, tmp_path) == 0
     assert registry.built == []
-    with opened(tmp_path / "work" / "out" / "servicenow-0.1.0.tar.gz") as packed:
+    with opened(tmp_path / "work" / "out" / f"servicenow-{VERSION}.tar.gz") as packed:
         assert packed.servers["servicenow"]["image"].endswith("@sha256:" + "a" * 64)
 
 
