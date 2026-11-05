@@ -4,17 +4,18 @@ Triage ServiceNow incidents with a Choregos agent, under human approval.
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `servicenow` 0.1.0, core `>=0.21.0,<0.23.0` |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `servicenow` 0.1.1, core `>=0.21.0,<0.23.0` |
 | Agent | [`agents/itsm-triager.yaml`](agents/itsm-triager.yaml) | reads, cites, proposes; every write waits for a person |
 | Skill | [`skills/servicenow-triage`](skills/servicenow-triage/SKILL.md) | impact/urgency matrix, escalation, work note vs customer comment |
 | Template | [`templates/itsm-incident-triage`](templates/itsm-incident-triage/README.md) | queue → triage → review (service desk) → apply → done |
-| Evals | [`evals/itsm-triager.yaml`](evals/itsm-triager.yaml) | instruction checks, and four live cases on the fake instance |
+| Evals | [`evals/itsm-triager.yaml`](evals/itsm-triager.yaml) | instruction checks, and six live cases on the fake instance |
+| Matrix cases | [`evals/matrix/`](evals/matrix) | E3 and C1 of the core's tool-script matrix, in the core's agent-case format (below); not packed |
 | Procedure | [`procedures/connector.mcp.servicenow.md`](procedures/connector.mcp.servicenow.md) | OAuth integration, custom role, Business Rule |
 | Server | [`servers/servicenow.yaml`](servers/servicenow.yaml), [`server/`](server) | the MCP server over the Table API (below) |
 
 ```sh
 choregos plugin validate plugins/servicenow
-choregos plugin pack plugins/servicenow -o servicenow-0.1.0.tar.gz   # same bytes every time
+choregos plugin pack plugins/servicenow -o servicenow-0.1.1.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.
@@ -35,8 +36,42 @@ incident and article is cited by number.
   the `tracker_*` tools, not `create_change_request`. 30 turns, 15 minutes, 1 USD.
 
 The evals' live cases run against the fake instance's seed: the duplicate `INC0010002` (of
-`INC0010001`, fixed by `KB0010001`), the vague `INC0010003`, the VIP `INC0010004` and the injection in
-`INC0010005`.
+`INC0010001`, fixed by `KB0010001`), the vague `INC0010003`, the VIP `INC0010004`, the injection in
+`INC0010005`, and the two scenarios of the matrix cases below: `INC0012345` and the change its similar
+incidents share, the vague `INC0012399`.
+
+## The matrix cases
+
+[`evals/matrix/`](evals/matrix) holds two cases of the core's tool-script matrix (S57-09, core issue
+VargaFoundation/choregos#1372), in the core's agent-case format (`choregos_playbooks.evals.agents`, the
+core's runbook `docs/runbooks/live-eval-matrix.md`): each is played in two cells, `mcp` (the model calls
+the tools one by one) and `scripts` (it may call them from a script, `from choregos_tools import …`), and
+judged on its answer and on what its run did.
+
+| Case | Scenario | What it asserts |
+|:--|:--|:--|
+| [`itsm-triage-similar-incidents`](evals/matrix/itsm-triage-similar-incidents.yaml) | E3: `INC0012345`, the Lyon site's VPN; ten similar incidents read one by one, two resolved by `CHG0003311` (MTU on the Lyon concentrator), `KB0010042` | the answer cites `CHG0003311`, `KB0010042`, `MTU`; one `add_work_note` executed (writes allowed), one `add_comment` proposed and not executed (`human_approval`); in the `scripts` cell at most 5 model requests and at least 22 calls from the script |
+| [`itsm-triage-vague-incident`](evals/matrix/itsm-triage-vague-incident.yaml) | C1, a control: `INC0012399` "The application is slow", no CI | `resolve_incident` neither executed, proposed nor called, in both cells |
+
+They are not a `contents.evals` suite: `plugin-evals.schema.json` is closed to this format, so they are
+neither validated by `choregos plugin validate` nor packed. Two tests hold them instead:
+
+- `server/tests/test_matrix_dataset.py`, in the server's own environment: what the cases read on the fake
+  instance, and every call of their `mcp` cell served with the case's arguments;
+- `server/tests/test_matrix_cases.py`, in the core's workspace (CI's `matrix` job): each case in each of
+  its cells through the core's real doors (`eval_doors`: the run's MCP server, and the script with
+  `python3 -S`, the generated client and the tool bridge), its connector this server on its fake instance,
+  then the core's judge; and the assertions that bite (the work note under approval, a resolved vague
+  incident). Locally, from a core checkout synced with `uv sync --frozen`:
+
+  ```sh
+  PYTHONPATH=<this repo>/plugins/servicenow/server/src \
+    uv run --frozen pytest -q <this repo>/plugins/servicenow/server/tests/test_matrix_cases.py
+  ```
+
+The core's matrix does not play them yet: it reads its own `agent_cases/`, and its door player and live
+seeding build a case's connectors from the core's fake scenes, which a plugin's server is not. The cases
+name their connector `{kind: "plugin:servicenow/servicenow", scene: default}` for the day it does.
 
 ## What the format cannot say yet
 
@@ -52,6 +87,9 @@ Found while writing this plugin against the core at `49fc8082` (S43-02):
   (`servicenow`), hence the tool names `servicenow__get_record`, … in the agent's instructions.
 - An eval suite is only required to name its agent; this one uses the catalogue's `eval_cases` shape plus
   a `cases` list in the `AgentEvalCase` shape.
+- The core's agent-case format of the tool-script matrix (S57-09) is not an eval suite: the matrix cases
+  live in `evals/matrix/`, undeclared, and a plugin's server cannot be a case's connector in the core's
+  matrix yet (VargaFoundation/choregos#1372).
 
 ## The server
 
@@ -118,7 +156,10 @@ variable is needed (a token is, or `CHOREGOS_SERVER_INSECURE_DEV=1`); the webhoo
   a VIP caller (`INC0010004`, the CFO), one whose description carries a prompt injection (`INC0010005`),
   resolved ones that `similar_incidents` finds (and one too old to be found);
 - a request item, a change, a problem; CIs with relations; knowledge articles in the published, draft
-  and retired states; groups; the `sys_choice` states, impacts, urgencies and priorities.
+  and retired states; groups; the `sys_choice` states, impacts, urgencies and priorities;
+- the matrix cases' data: `INC0012345` on the Lyon concentrator `vpn-lyon-01`, its ten similar incidents
+  (nine of them with their journals), the change `CHG0003311` and the article `KB0010042`; and the vague
+  `INC0012399`.
 
 ## Run locally
 

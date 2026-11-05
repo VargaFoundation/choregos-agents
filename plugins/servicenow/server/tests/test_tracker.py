@@ -94,6 +94,7 @@ async def test_list_candidates_reads_the_configured_queue(mcp: Mcp) -> None:
         "INC0010003",
         "INC0010004",
         "INC0010005",
+        "INC0012399",
         "RITM0010001",
     ]
     only = await mcp.call("tracker_list_candidates", tables=["sc_req_item"])
