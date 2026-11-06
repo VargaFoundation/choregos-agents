@@ -15,7 +15,10 @@ that the core can install them instead (S43-09). This file is the mapping that m
 ## Agents
 
 The fingerprint is `EntreeDuCatalogue.empreinte` (sha256 of the entry's document once loaded, context
-included) at the source commit; `scripts/check_core_parity.py` recomputes both sides in CI.
+included) at the source commit. `scripts/check_core_parity.py` recomputed both sides in CI until the core
+stopped shipping its built-in catalogue (S43-09; the module the check imported left the core in 0.23.1):
+the core's catalogue is now a view over these plugins, which its offline lock (`plugins/offline/plugins.lock`)
+pins by content digest, and a published version is immutable.
 
 | Slug | Kind | Plugin | Plugin version | Catalogue version | Core file | Fingerprint (`EntreeDuCatalogue.empreinte`) |
 |:--|:--|:--|:--|--:|:--|:--|
@@ -51,7 +54,7 @@ included) at the source commit; `scripts/check_core_parity.py` recomputes both s
 ## Instructions are byte-identical
 
 - Each agent file is the core's file. Only YAML comments changed (the six client files: their French
-  comments translated); the parsed document is equal, which the parity check asserts.
+  comments translated); the parsed document is equal, which the parity check asserted.
 - The plugin files do **not** inline `_contexte.md`. The installer loads a plugin agent through the
   core's own `entry_of` (`services/plugin_installer.py`), which prepends `_contexte.md` to an internal
   agent's `spec.instructions` exactly as the built-in loader does. Installed instructions are therefore

@@ -11,12 +11,19 @@ It carries what an agent needs to do its job:
 | `agents/` | the agents, in the catalogue entry shape (`catalogue:` + `agent:`) |
 | `skills/` | `SKILL.md` directories the agents carry |
 | `templates/` | project templates: workflows, routing, policy |
-| `evals/` | evaluation cases run before a version is released |
+| `evals/` | evaluation cases run before a version is released, and cases of the core's eval matrix (`contents.matrix_cases`) |
 | `procedures/` | step-by-step guides for whoever installs and configures it |
 | `servers/` | when the agent needs code to reach a system: an MCP server image the platform runs and governs |
 
 The format is specified by ADR 0093 and ADR 0094 in the Choregos repository, and checked by
 `choregos plugin validate`.
+
+A plugin may also give the core's eval matrix its own cases: agent cases in the core's format, declared in
+`contents.matrix_cases`, each played by the matrix in its cells against the plugin's server on its fake,
+which the server's file declares (`fake: {env, scenes}`). In a scripted cell the core reaches the server
+on a fake registered in its process; in a live cell, on an eval instance the platform runs with those
+variables only. See [CONTRIBUTING.md](CONTRIBUTING.md#matrix-cases-and-a-servers-fake); `servicenow`
+ships two (E3 and C1 of the tool-script matrix).
 
 ## Plugins
 

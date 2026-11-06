@@ -121,3 +121,11 @@ implements: [tracker]
 
 webhook:
   path: /events
+
+# How the platform runs this server on its fake for the eval matrix (core #1372): the variable that
+# switches it to its seeded in-memory instance (server/src/choregos_servicenow/config.py), which no
+# configuration field reaches, and the one scene that instance serves. The platform adds its own token
+# (CHOREGOS_SERVER_TOKEN) and nothing of the configuration; CHOREGOS_SERVER_INSECURE_DEV is not needed.
+fake:
+  env: {SERVICENOW_FAKE: "1"}
+  scenes: [default]
