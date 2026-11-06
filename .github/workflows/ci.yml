@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # The core whose validator, packer, eval matrix and publication library every job runs: the commit of
+  # the tag v0.23.5. Its schemas accept `contents.matrix_cases` and a server's `fake` (since v0.23.2,
+  # VargaFoundation/choregos#1417). publish.yml pins the same commit.
+  CHOREGOS_REF: ed0351e3255e5483c4f3f5080f2f5a18e2bf6580
+
 jobs:
   servers:
     # Each plugin that ships a server: its own lint, types and tests, in fake mode.
@@ -35,10 +41,6 @@ jobs:
     # Every plugin through the core's own validator and packer (ADR 0093): manifest, agents, skills,
     # templates, evals, procedures, servers; then `pack` twice must give the same bytes.
     runs-on: ubuntu-latest
-    env:
-      # main after the S43 merge (#1033); move to a release tag once one carries it.
-      # TODO: move to the first core release tag that ships it (v0.21.0).
-      CHOREGOS_REF: 3156d12eabb7dc11fd54d821604cb1efb0033b04
     steps:
       - uses: actions/checkout@v4
         with: { path: agents }
@@ -69,33 +71,22 @@ jobs:
             echo "::endgroup::"
           done
           [ "$found" = 1 ] || echo "no plugin yet"
-      - name: the core's catalogue, unchanged in the plugins
-        # The agents, evals and skills moved from the core (A-03) load exactly as the core's own entries.
-        # Remove once the core no longer ships its built-in catalogue (S43-09).
-        shell: bash
-        run: |
-          cd core
-          uv run --frozen --package choregos-cli python \
-            "$GITHUB_WORKSPACE/agents/scripts/check_core_parity.py" "$GITHUB_WORKSPACE/agents/plugins"
 
   matrix:
-    # The ServiceNow plugin's cases of the core's tool-script matrix (plugins/servicenow/evals/matrix/, the
-    # core's agent-case format, S57-09): each played in its cells through the core's real doors on the
-    # server's fake instance, and judged by the core's case judge. Needs the core's whole workspace (the
-    # orchestrator's door player, the playbooks' judge, the runner's generated client) and the server's
-    # source on the path.
+    # The ServiceNow plugin's matrix cases (`contents.matrix_cases`, the core's agent-case format), played
+    # as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
+    # each played in its cells through the core's real doors against the server in-process on its fake
+    # (registered with the core's `use_fake_plugin_server`), and judged by the core's case judge. Needs
+    # the core's whole workspace (the orchestrator's door player, the playbooks' judge, the runner's
+    # generated client) and the server's source on the path.
     runs-on: ubuntu-latest
-    env:
-      # core main after S57-09 and S57-11a, which hold the doors and the judge the cases are played by;
-      # move to the first core release tag that ships them.
-      CHOREGOS_MATRIX_REF: f90c9b6c6528ee2faa2cc42c4af17b1f8dcddf79
     steps:
       - uses: actions/checkout@v4
         with: { path: agents }
       - uses: actions/checkout@v4
         with:
           repository: VargaFoundation/choregos
-          ref: ${{ env.CHOREGOS_MATRIX_REF }}
+          ref: ${{ env.CHOREGOS_REF }}
           path: core
       - uses: astral-sh/setup-uv@v6
       - name: play and judge the matrix cases
@@ -143,8 +134,6 @@ jobs:
     # scripts/publish.py, which publish.yml runs on main only: its tests against an in-memory registry,
     # then every plugin of the tree staged, packed and indexed offline (no registry, docker nor cosign).
     runs-on: ubuntu-latest
-    env:
-      CHOREGOS_REF: 3156d12eabb7dc11fd54d821604cb1efb0033b04
     steps:
       - uses: actions/checkout@v4
         with: { path: agents }
