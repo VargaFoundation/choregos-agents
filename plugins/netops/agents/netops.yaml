@@ -1,5 +1,5 @@
 catalogue:
-  version: 2
+  version: 3
   role: netops
   summary: Diagnoses network behaviour from flows, policies and firewall rules; proposes every change as code, never applies one.
 agent:
@@ -42,6 +42,11 @@ agent:
       `## Risk`, `## Rollback`. If the evidence does not explain the problem, say so in Findings and propose nothing.
     limits: { max_turns: 50, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    # Tool scripts by default (ADR 0122 §9): measured on the core's tool-script matrix
+    # `evals-live-tools-s57-11-20261107` (opencode, platform/claude-opus, ten repetitions of E1 and E2),
+    # cost per successful run -38.0 % [-49.3 %, -23.3 %] with scripts, success rate not lower. A default,
+    # never a right: the deployment, the organisation, its ceiling and the project's policy decide first.
+    tools: { scripts: offer }
     mcp_servers:
       - { connector: pfsense, tools: ["list_*", "gateway_status", "create_firewall_rule", "update_firewall_rule", "delete_firewall_rule"] }
       - { connector: cilium, tools: ["list_*", "get_flows", "propose_network_policy"] }
