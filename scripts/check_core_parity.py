@@ -12,6 +12,9 @@ catalogue version, role, summary, outputs, tools and tags. The core's eval cases
 passing on the plugin's agent; the core's skills must be carried with the same files. An agent whose
 text differed would be offered as an update when the core moves its catalogue to these plugins
 (S43-09). Remove this check once the core no longer ships the catalogue.
+
+An agent that moved on since lists here what it added (`MOVED_ON`): it is compared without those spec
+keys, and its catalogue version may be higher than the core's. Nothing else of it may differ.
 """
 
 from __future__ import annotations
@@ -24,13 +27,27 @@ from choregos_core.catalogue_d_agents import entrees, entry_of, fichiers_de_la_s
 from choregos_core.catalogue_d_agents.evals import case_paths, evaluate, load_case
 from choregos_core.plugins import load_directory
 
+#: {agent: spec keys its plugin added after the core's catalogue moved here}. `netops` 1.1.0 makes tool
+#: scripts its default (`tools`, ADR 0122 §9, core S57-15), a field the pinned core does not know.
+MOVED_ON: dict[str, frozenset[str]] = {"netops": frozenset({"tools"})}
+
+
+def _as_moved(slug: str, document: dict) -> dict:
+    """The agent file without the spec keys `MOVED_ON` lists for it."""
+    added = MOVED_ON.get(slug)
+    if not added:
+        return document
+    agent = dict(document["agent"])
+    agent["spec"] = {k: v for k, v in (agent.get("spec") or {}).items() if k not in added}
+    return {**document, "agent": agent}
+
 
 def main(plugins_dir: Path) -> int:
     agents, evals, skills = {}, {}, {}
     for root in sorted(p for p in plugins_dir.iterdir() if (p / "plugin.yaml").is_file()):
         plugin = load_directory(root)
         for slug, document in plugin.agents.items():
-            agents[slug] = (plugin.name, entry_of(document))
+            agents[slug] = (plugin.name, entry_of(_as_moved(slug, document)))
         contents = plugin.manifest["contents"]
         for ref in contents.get("evals", []):
             evals[Path(ref).name] = (plugin.name, (root / ref).read_bytes())
@@ -51,6 +68,8 @@ def main(plugins_dir: Path) -> int:
             problems.append(f"{name}/{core.slug}: fingerprint {ours.empreinte} != core {core.empreinte}")
         for field in ("version", "role", "resume", "client", "portee", "outputs", "tools", "tags",
                       "human_gate_after", "skills", "genre"):
+            if field == "version" and core.slug in MOVED_ON and ours.version > core.version:
+                continue
             if getattr(ours, field) != getattr(core, field):
                 problems.append(f"{name}/{core.slug}: catalogue `{field}` differs from the core's")
     for path in case_paths():
