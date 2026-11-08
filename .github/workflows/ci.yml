@@ -10,9 +10,10 @@ permissions:
 
 env:
   # The core whose validator, packer, eval matrix and publication library every job runs: the commit of
-  # the tag v0.23.5. Its schemas accept `contents.matrix_cases` and a server's `fake` (since v0.23.2,
-  # VargaFoundation/choregos#1417). publish.yml pins the same commit.
-  CHOREGOS_REF: ed0351e3255e5483c4f3f5080f2f5a18e2bf6580
+  # the tag v0.24.1. Its schemas accept `contents.matrix_cases` and a server's `fake` (since v0.23.2,
+  # VargaFoundation/choregos#1417) and an agent's `spec.tools` default (S57-15, netops 1.1.0).
+  # publish.yml pins the same commit.
+  CHOREGOS_REF: 5f79219a56d6b3d730e3578feb23d18d0c7cfdd9
 
 jobs:
   servers:
