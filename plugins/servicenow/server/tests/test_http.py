@@ -46,7 +46,7 @@ def test_healthz(http: TestClient) -> None:
     assert http.get("/healthz", headers={"Authorization": ""}).json() == {
         "status": "ok",
         "fake": True,
-        "version": "0.1.1",
+        "version": "0.1.2",
     }
 
 

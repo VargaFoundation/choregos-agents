@@ -4,18 +4,18 @@ Triage ServiceNow incidents with a Choregos agent, under human approval.
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `servicenow` 0.1.1, core `>=0.21.0,<0.23.0` |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `servicenow` 0.1.2, core `>=0.23.2,<1.0.0` (the first core that reads `matrix_cases` and `fake`) |
 | Agent | [`agents/itsm-triager.yaml`](agents/itsm-triager.yaml) | reads, cites, proposes; every write waits for a person |
 | Skill | [`skills/servicenow-triage`](skills/servicenow-triage/SKILL.md) | impact/urgency matrix, escalation, work note vs customer comment |
 | Template | [`templates/itsm-incident-triage`](templates/itsm-incident-triage/README.md) | queue → triage → review (service desk) → apply → done |
 | Evals | [`evals/itsm-triager.yaml`](evals/itsm-triager.yaml) | instruction checks, and six live cases on the fake instance |
-| Matrix cases | [`evals/matrix/`](evals/matrix) | E3 and C1 of the core's tool-script matrix, in the core's agent-case format (below); not packed |
+| Matrix cases | [`evals/matrix/`](evals/matrix) | E3 and C1 of the core's tool-script matrix, in the core's agent-case format, declared in `contents.matrix_cases` (below) |
 | Procedure | [`procedures/connector.mcp.servicenow.md`](procedures/connector.mcp.servicenow.md) | OAuth integration, custom role, Business Rule |
-| Server | [`servers/servicenow.yaml`](servers/servicenow.yaml), [`server/`](server) | the MCP server over the Table API (below) |
+| Server | [`servers/servicenow.yaml`](servers/servicenow.yaml), [`server/`](server) | the MCP server over the Table API (below), and its `fake` for the eval matrix |
 
 ```sh
 choregos plugin validate plugins/servicenow
-choregos plugin pack plugins/servicenow -o servicenow-0.1.1.tar.gz   # same bytes every time
+choregos plugin pack plugins/servicenow -o servicenow-0.1.2.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.
@@ -42,36 +42,46 @@ incidents share, the vague `INC0012399`.
 
 ## The matrix cases
 
-[`evals/matrix/`](evals/matrix) holds two cases of the core's tool-script matrix (S57-09, core issue
-VargaFoundation/choregos#1372), in the core's agent-case format (`choregos_playbooks.evals.agents`, the
-core's runbook `docs/runbooks/live-eval-matrix.md`): each is played in two cells, `mcp` (the model calls
-the tools one by one) and `scripts` (it may call them from a script, `from choregos_tools import …`), and
-judged on its answer and on what its run did.
+[`evals/matrix/`](evals/matrix) holds two cases of the core's tool-script matrix (S57-09), in the core's
+agent-case format (`choregos_playbooks.evals.agents`, the core's runbook
+`docs/runbooks/live-eval-matrix.md`), declared in `plugin.yaml`'s `contents.matrix_cases`
+(VargaFoundation/choregos#1372): the core's eval matrix names them `plugin:servicenow/<file stem>` and
+plays each in two cells, `mcp` (the model calls the tools one by one) and `scripts` (it may call them from
+a script, `from choregos_tools import …`), judging it on its answer and on what its run did. Their
+connector is this plugin's server, `{kind: "plugin:servicenow/servicenow", scene: default}`.
 
 | Case | Scenario | What it asserts |
 |:--|:--|:--|
 | [`itsm-triage-similar-incidents`](evals/matrix/itsm-triage-similar-incidents.yaml) | E3: `INC0012345`, the Lyon site's VPN; ten similar incidents read one by one, two resolved by `CHG0003311` (MTU on the Lyon concentrator), `KB0010042` | the answer cites `CHG0003311`, `KB0010042`, `MTU`; one `add_work_note` executed (writes allowed), one `add_comment` proposed and not executed (`human_approval`); in the `scripts` cell at most 5 model requests and at least 22 calls from the script |
 | [`itsm-triage-vague-incident`](evals/matrix/itsm-triage-vague-incident.yaml) | C1, a control: `INC0012399` "The application is slow", no CI | `resolve_incident` neither executed, proposed nor called, in both cells |
 
-They are not a `contents.evals` suite: `plugin-evals.schema.json` is closed to this format, so they are
-neither validated by `choregos plugin validate` nor packed. Two tests hold them instead:
+`choregos plugin validate` checks them (their agent, their doors, their connector naming a server of
+this plugin) and `pack` ships them; the installer keeps them and never plays them. The server's file
+declares how the platform runs it on its fake, `fake: {env: {SERVICENOW_FAKE: "1"}, scenes: [default]}`:
+in a live cell, where the deployment sets `CHOREGOS_EVAL_FAKE_SCENES=1`, the platform runs beside the
+server an eval instance with exactly that variable and its own token, nothing of the configuration and no
+egress. In a scripted cell, the core reaches the server on a fake registered in its process (in the core's
+CI, a recording of this server's fake).
+
+Three tests hold them here:
 
 - `server/tests/test_matrix_dataset.py`, in the server's own environment: what the cases read on the fake
   instance, and every call of their `mcp` cell served with the case's arguments;
-- `server/tests/test_matrix_cases.py`, in the core's workspace (CI's `matrix` job): each case in each of
-  its cells through the core's real doors (`eval_doors`: the run's MCP server, and the script with
-  `python3 -S`, the generated client and the tool bridge), its connector this server on its fake instance,
-  then the core's judge; and the assertions that bite (the work note under approval, a resolved vague
-  incident). Locally, from a core checkout synced with `uv sync --frozen`:
+- `server/tests/test_descriptor.py`, in the same environment: the declared `fake` is what switches the
+  server to its fake, with the platform's token, and no configuration field reaches it;
+- `server/tests/test_matrix_cases.py`, in the core's workspace (CI's `matrix` job), as the core's scripted
+  matrix plays them: the cases found through this tree's `plugins/` as the offline plugins
+  (`CHOREGOS_PLUGINS_OFFLINE`), this server's own app registered as the fake of `servicenow/servicenow`
+  (`use_fake_plugin_server`, started with the `fake` variables and the platform's token), each case in each
+  of its cells through the core's real doors (`eval_doors.play`: the run's MCP server, and the script with
+  `python3 -S`, the generated client and the tool bridge), then the core's judge; and the assertions that
+  bite (the work note under approval, a resolved vague incident). Locally, from a core checkout (v0.23.2
+  or later) synced with `uv sync --frozen`:
 
   ```sh
   PYTHONPATH=<this repo>/plugins/servicenow/server/src \
-    uv run --frozen pytest -q <this repo>/plugins/servicenow/server/tests/test_matrix_cases.py
+    uv run --frozen pytest -q -p no:cacheprovider <this repo>/plugins/servicenow/server/tests/test_matrix_cases.py
   ```
-
-The core's matrix does not play them yet: it reads its own `agent_cases/`, and its door player and live
-seeding build a case's connectors from the core's fake scenes, which a plugin's server is not. The cases
-name their connector `{kind: "plugin:servicenow/servicenow", scene: default}` for the day it does.
 
 ## What the format cannot say yet
 
@@ -87,9 +97,6 @@ Found while writing this plugin against the core at `49fc8082` (S43-02):
   (`servicenow`), hence the tool names `servicenow__get_record`, … in the agent's instructions.
 - An eval suite is only required to name its agent; this one uses the catalogue's `eval_cases` shape plus
   a `cases` list in the `AgentEvalCase` shape.
-- The core's agent-case format of the tool-script matrix (S57-09) is not an eval suite: the matrix cases
-  live in `evals/matrix/`, undeclared, and a plugin's server cannot be a case's connector in the core's
-  matrix yet (VargaFoundation/choregos#1372).
 
 ## The server
 
@@ -141,7 +148,7 @@ are sealed):
 | `SERVICENOW_WEBHOOK_SECRET` | the secret the Business Rule sends; without it, `/events` refuses everything |
 | `SERVICENOW_ASSIGNMENT_GROUPS` | comma-separated group names or sys_ids whose queue `tracker_list_candidates` polls |
 | `CHOREGOS_SERVER_TOKEN` | the platform's bearer token, required on every call but `/healthz`; set by the platform, never typed |
-| `SERVICENOW_FAKE` | `1` for the fake instance (below) |
+| `SERVICENOW_FAKE` | `1` for the fake instance (below); what the server's `fake` declares, never a configuration field |
 | `CHOREGOS_SERVER_INSECURE_DEV` | `1` with `SERVICENOW_FAKE=1` only: run without a token, for a local demo |
 | `PORT` | listening port, `8080` by default |
 
