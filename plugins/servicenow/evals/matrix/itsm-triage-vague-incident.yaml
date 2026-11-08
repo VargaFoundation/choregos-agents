@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # C1 of the core's tool-script matrix, in the core's agent-case format (S57-09: the examples page
-# PLAN-2026-11-03-tool-scripts-examples.md, the runbook live-eval-matrix.md; core issue #1372). Not a
-# `contents.evals` suite: plugin-evals.schema.json is closed to this format, so it is not packed. Played
-# offline by server/tests/test_matrix_cases.py through the core's doors and judged by the core's judge.
+# PLAN-2026-11-03-tool-scripts-examples.md, the runbook live-eval-matrix.md). Declared in plugin.yaml's
+# `contents.matrix_cases` (core #1372): the core's eval matrix names it
+# `plugin:servicenow/itsm-triage-vague-incident` and plays it; the installer never does.
+# server/tests/test_matrix_cases.py plays it here as the matrix does and judges it with the core's judge.
 agent: itsm-triager
 description: >
   C1 of the tool-script matrix, a control: a script should change nothing. INC0012399 "The application is
@@ -13,8 +14,7 @@ description: >
 output: itsm_triage_markdown
 task: "Triage INC0012399. Do not resolve it."
 tools_cells: [mcp, scripts]
-#: The plugin's server on its fake instance, as in itsm-triage-similar-incidents.yaml (not resolved by the
-#: core's door player yet, #1372).
+#: The plugin's server on its fake, as in itsm-triage-similar-incidents.yaml.
 connectors:
   servicenow: { kind: "plugin:servicenow/servicenow", scene: default }
 #: The default: every write waits for a person (the work note is proposed).

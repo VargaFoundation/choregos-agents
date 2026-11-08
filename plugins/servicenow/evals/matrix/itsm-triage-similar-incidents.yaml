@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # E3 of the core's tool-script matrix, in the core's agent-case format (S57-09: the examples page
-# PLAN-2026-11-03-tool-scripts-examples.md, the runbook live-eval-matrix.md; core issue #1372). Not a
-# `contents.evals` suite: plugin-evals.schema.json is closed to this format, so it is not packed. Played
-# offline by server/tests/test_matrix_cases.py through the core's doors and judged by the core's judge.
+# PLAN-2026-11-03-tool-scripts-examples.md, the runbook live-eval-matrix.md). Declared in plugin.yaml's
+# `contents.matrix_cases` (core #1372): the core's eval matrix names it
+# `plugin:servicenow/itsm-triage-similar-incidents` and plays it; the installer never does.
+# server/tests/test_matrix_cases.py plays it here as the matrix does and judges it with the core's judge.
 agent: itsm-triager
 description: >
   E3 of the tool-script matrix: ITSM triage with a fan-out. INC0012345, the Lyon site's VPN;
@@ -15,9 +16,9 @@ task: >
   Triage INC0012345: find similar past incidents and how they were resolved, cite the knowledge base, add a
   work note with your findings, and propose a reply to the caller.
 tools_cells: [mcp, scripts]
-#: The plugin's server on its fake instance (`SERVICENOW_FAKE=1`, server/src/choregos_servicenow/fake.py):
-#: `plugin:<plugin>/<server>`, as a template names a plugin's server. The core's door player and live
-#: seeding resolve scene kinds only (`choregos_adapters.fakes.scenes`), not this one, yet (#1372).
+#: The plugin's server on its fake (`plugin:<plugin>/<server>`, named after the server): in a scripted
+#: cell, the fake registered for it in the process; in a live cell, the eval instance the platform runs
+#: from the `fake` of servers/servicenow.yaml (`SERVICENOW_FAKE=1`, server/src/choregos_servicenow/fake.py).
 connectors:
   servicenow: { kind: "plugin:servicenow/servicenow", scene: default }
 #: Writes allowed by the project: `add_work_note` runs as a governed action; `add_comment` and

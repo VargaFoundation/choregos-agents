@@ -7,12 +7,16 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 from mcp import Client
 from mcp.server.mcpserver import MCPServer
+from starlette.testclient import TestClient
 
+from choregos_servicenow.app import build_app
+from choregos_servicenow.config import Settings
 from choregos_servicenow.fake import sys_id_of
 
 from .conftest import Mcp
@@ -112,6 +116,23 @@ def test_the_rest_of_the_descriptor() -> None:
         "SERVICENOW_ASSIGNMENT_GROUPS",
     }
     assert set(operations()) >= TRACKER_TOOLS
+
+
+def test_the_declared_fake_is_what_switches_the_server_to_its_fake_and_no_administrator_reaches_it() -> None:
+    """`fake` (core #1372): for the live eval matrix the platform runs an eval instance of the image with
+    exactly these variables and its own token, nothing of the configuration. They switch the server to its
+    seeded instance; none is the platform's (`CHOREGOS_*`) nor one a configuration field reaches."""
+    d = descriptor()
+    assert d["fake"] == {"env": {"SERVICENOW_FAKE": "1"}, "scenes": ["default"]}
+    variables = set(d["fake"]["env"])
+    assert not {name for name in variables if name.startswith("CHOREGOS_")}
+    assert not variables & {p["x-env"] for p in d["config_schema"]["properties"].values()}
+    as_the_platform_runs_it = {**d["fake"]["env"], "CHOREGOS_SERVER_TOKEN": "the-platform-s-token"}
+    with TestClient(build_app(Settings.from_env(as_the_platform_runs_it))) as client:
+        assert client.get("/healthz").json()["fake"] is True
+    # Without them, the same environment is a real instance nobody configured: it refuses to start.
+    with pytest.raises(ValueError, match="SERVICENOW_BASE_URL"):
+        build_app(Settings.from_env({"CHOREGOS_SERVER_TOKEN": "the-platform-s-token"}))
 
 
 async def test_the_declared_compensations_undo_their_write(mcp: Mcp) -> None:

@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: servicenow
-  version: 0.1.1
+  version: 0.1.2
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -14,8 +14,9 @@ metadata:
     incidents, cites knowledge articles, and proposes a classification and actions that the service
     desk approves before anything is written.
   homepage: https://github.com/VargaFoundation/choregos-agents
-  # Plugins arrive with the core release after 0.20.5 (stream S43).
-  core: ">=0.21.0,<1.0.0"
+  # 0.23.2 is the first core whose schemas accept `contents.matrix_cases` and a server's `fake`, and
+  # whose eval matrix plays them (VargaFoundation/choregos#1372); an older core refuses this manifest.
+  core: ">=0.23.2,<1.0.0"
 requires:
   plugins: []
   connectors: {}
@@ -26,3 +27,8 @@ contents:
   evals: [evals/itsm-triager.yaml]
   procedures: ["procedures/*.md"]
   servers: [servers/servicenow.yaml]
+  # Cases of the core's eval matrix (its agent-case format), named `plugin:servicenow/<file stem>`: the
+  # matrix plays them against the server's fake; the installer keeps them and never plays them.
+  matrix_cases:
+    - evals/matrix/itsm-triage-similar-incidents.yaml
+    - evals/matrix/itsm-triage-vague-incident.yaml
