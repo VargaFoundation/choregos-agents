@@ -1,5 +1,5 @@
 catalogue:
-  version: 3
+  version: 4
   role: netops
   summary: Diagnoses network behaviour from flows, policies and firewall rules; proposes every change as code, never applies one.
 agent:
@@ -46,8 +46,10 @@ agent:
     # `evals-live-tools-s57-11-20261107` (opencode, platform/claude-opus, ten repetitions of E1 and E2),
     # cost per successful run -38.0 % [-49.3 %, -23.3 %] with scripts, success rate not lower. A default,
     # never a right: the deployment, the organisation, its ceiling and the project's policy decide first.
-    tools: { scripts: offer }
+    tools: { scripts: offer, catalogue: [], extensions: [], web: [] }
     mcp_servers:
       - { connector: pfsense, tools: ["list_*", "gateway_status", "create_firewall_rule", "update_firewall_rule", "delete_firewall_rule"] }
       - { connector: cilium, tools: ["list_*", "get_flows", "propose_network_policy"] }
       - { connector: nginx, tools: ["list_*", "read_*", "propose_nginx_config"] }
+    model: profile:by_size
+    memories: [{ scope: project, slug: shared, mode: write }]

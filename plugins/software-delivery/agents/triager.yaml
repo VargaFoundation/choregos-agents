@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: triage
   summary: Sizes and qualifies an incoming work item; asks at most three questions; changes no file.
 agent:
@@ -19,3 +19,6 @@ agent:
       Write exactly these outputs: `{"size": "S|M|L|XL", "risk": "low|medium|high", "duplicate_of": null}`.
     limits: { max_turns: 15, max_minutes: 10 }
     budget: { run_usd: 1.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

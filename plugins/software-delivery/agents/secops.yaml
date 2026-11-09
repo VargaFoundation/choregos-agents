@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: review
   summary: Supply chain and runtime posture — dependency CVEs, SBOM, secrets, container and IaC scans — run with the image's scanners and interpreted, as a SARIF report.
   # The output contract: a transition that runs this agent declares these names (and no others).
@@ -36,3 +36,6 @@ agent:
       misconfiguration is found.
     limits: { max_turns: 40, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

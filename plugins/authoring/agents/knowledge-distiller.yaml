@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: distill
   summary: Compiles a knowledge base into a principles skill, each principle citing the documents it comes from; a person approves it.
 agent:
@@ -28,3 +28,6 @@ agent:
                         "sources": [{"document": "<file name>", "section": "<heading > path>"}]}]}`
     limits: { max_turns: 1, max_minutes: 10 }
     budget: { run_usd: 2.0 }
+    model: profile:standard
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: []

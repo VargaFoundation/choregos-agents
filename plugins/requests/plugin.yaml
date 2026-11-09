@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: requests
-  version: 1.0.1
+  version: 1.1.0
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -18,7 +18,10 @@ metadata:
   # 1.0.1 admits 0.21.0: a core built from main after that release reports 0.21.0 and already runs
   # `default-request`. On the 0.21.0 release itself, which has neither the workflow nor the `brief` and
   # `deliver` playbooks, the agents install and wait unused: a catalogue role is a label there.
-  core: ">=0.21.0,<1.0.0"
+  # 1.1.0: every agent declares its five components (ADR 0127, S60-04): `model`, `tools.catalogue|extensions|web`,
+  # `memories`. An older core refuses the spec fields it does not know, so it keeps the previous version; the
+  # first core release with them (S60-01) is the one after 0.24.8.
+  core: ">=0.24.9,<1.0.0"
 requires:
   plugins: []
   connectors: {}

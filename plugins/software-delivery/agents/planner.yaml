@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: plan
   summary: Writes the implementation plan — ordered steps, files, the test that proves each step, rollback.
 agent:
@@ -19,3 +19,6 @@ agent:
       Write exactly this output: `{"plan_markdown": "…"}`.
     limits: { max_turns: 30, max_minutes: 20 }
     budget: { run_usd: 3.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

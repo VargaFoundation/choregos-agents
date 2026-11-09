@@ -1,6 +1,6 @@
 catalogue:
   # 2: challenges the request against the knowledge bases attached to it, with mandatory citations (S33-06).
-  version: 2
+  version: 3
   role: architect
   summary: Writes one architecture decision record in MADR 4 format, citing the enterprise framework when a knowledge base holds it; once approved, marks it accepted.
   outputs: [adr_path, adr_markdown]
@@ -43,3 +43,6 @@ agent:
     limits: { max_turns: 60, max_minutes: 40 }
     budget: { run_usd: 5.0 }
     skills: [{ slug: madr-4 }]
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: verify
   summary: A test plan from the specification, the edge cases nobody wrote, and mutation testing on the changed code — a test that cannot fail proves nothing.
   outputs: [test_plan, mutation_report, test_report]
@@ -35,3 +35,6 @@ agent:
       what passed, what is wrong"}`, and complete `evidence` (`tests_passed`, `tests_run`).
     limits: { max_turns: 80, max_minutes: 60 }
     budget: { run_usd: 8.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

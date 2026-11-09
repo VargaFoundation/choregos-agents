@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: authoring
-  version: 1.0.0
+  version: 1.1.0
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -18,7 +18,10 @@ metadata:
   # 0.20.6, the latest core release, was tagged before the plugin installer (S43); 0.21.0 is the first
   # release that installs plugins. These agents need only the catalogue entry shape (ADR 0040) and the
   # work-item context the core prepends to their instructions, both stable across 0.x.
-  core: ">=0.21.0,<1.0.0"
+  # 1.1.0: every agent declares its five components (ADR 0127, S60-04): `model`, `tools.catalogue|extensions|web`,
+  # `memories`. An older core refuses the spec fields it does not know, so it keeps the previous version; the
+  # first core release with them (S60-01) is the one after 0.24.8.
+  core: ">=0.24.9,<1.0.0"
 requires:
   plugins: []
   connectors: {}

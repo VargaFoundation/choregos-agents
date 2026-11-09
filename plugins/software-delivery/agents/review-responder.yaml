@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: address_review
   summary: Answers every review remark — fixes it or says why not — and refactors nothing else.
 agent:
@@ -22,3 +22,6 @@ agent:
       Write exactly this output: `{"review_markdown": "point-by-point answers"}`.
     limits: { max_turns: 80, max_minutes: 60 }
     budget: { run_usd: 8.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

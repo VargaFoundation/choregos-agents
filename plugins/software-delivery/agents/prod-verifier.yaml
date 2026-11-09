@@ -1,5 +1,5 @@
 catalogue:
-  version: 2
+  version: 3
   role: verify_prod
   summary: After the release train has deployed, checks production read-only and gives a go or no-go.
 agent:
@@ -36,3 +36,6 @@ agent:
       and put the figures in `summary`.
     limits: { max_turns: 25, max_minutes: 15 }
     budget: { run_usd: 2.0 }
+    model: profile:by_size
+    tools: { catalogue: ["group:observability"], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

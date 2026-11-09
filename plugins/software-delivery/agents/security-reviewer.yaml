@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: review
   summary: A security-only review — injection, authorization, secrets, dependencies, data exposure — with a verdict.
 agent:
@@ -19,3 +19,6 @@ agent:
       `"verdict": "request_changes"` when a finding is exploitable.
     limits: { max_turns: 40, max_minutes: 25 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

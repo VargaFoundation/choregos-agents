@@ -1,5 +1,5 @@
 catalogue:
-  version: 2
+  version: 3
   role: refine
   summary: Turns a work item into a testable specification and the minimal list of paths the change may touch.
 agent:
@@ -28,3 +28,6 @@ agent:
       Write exactly these outputs: `{"spec_markdown": "…", "allowed_paths": ["src/…"], "size": "S|M|L|XL", "risk": "low|medium|high"}`.
     limits: { max_turns: 40, max_minutes: 25 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]
