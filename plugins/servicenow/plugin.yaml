@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: servicenow
-  version: 0.1.2
+  version: 0.2.0
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -14,9 +14,10 @@ metadata:
     incidents, cites knowledge articles, and proposes a classification and actions that the service
     desk approves before anything is written.
   homepage: https://github.com/VargaFoundation/choregos-agents
-  # 0.23.2 is the first core whose schemas accept `contents.matrix_cases` and a server's `fake`, and
-  # whose eval matrix plays them (VargaFoundation/choregos#1372); an older core refuses this manifest.
-  core: ">=0.23.2,<1.0.0"
+  # 0.2.0: `itsm-triager` declares its five components (ADR 0127, S60-04): `model`,
+  # `tools.catalogue|extensions|web`, `memories`. An older core refuses the spec fields it does not know, so
+  # it keeps 0.1.2; the first core release with them (S60-01) is 0.25.0.
+  core: ">=0.25.0,<1.0.0"
 requires:
   plugins: []
   connectors: {}
