@@ -1,5 +1,5 @@
 catalogue:
-  version: 2
+  version: 3
   role: research
   summary: Researches a question in the code, the existing decisions and memory; lists options with evidence; changes nothing.
 agent:
@@ -20,5 +20,5 @@ agent:
     limits: { max_turns: 60, max_minutes: 40 }
     budget: { run_usd: 5.0 }
     model: profile:by_size
-    tools: { catalogue: [], extensions: [], web: [] }
+    tools: { catalogue: [], extensions: [], web: [fetch, search] }
     memories: [{ scope: project, slug: shared, mode: write }]
