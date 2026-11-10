@@ -14,7 +14,7 @@ The agents of a governed software delivery, from triage to the production go or 
 | [`prod-verifier`](agents/prod-verifier.yaml) | 3 | After the release train has deployed, checks production read-only and gives a go or no-go. |
 | [`qa`](agents/qa.yaml) | 2 | A test plan from the specification, the edge cases nobody wrote, and mutation testing on the changed code — a test that cannot fail proves nothing. |
 | [`release-notes-writer`](agents/release-notes-writer.yaml) | 2 | Writes user-facing release notes from the specification and the diff; changes no file. |
-| [`researcher`](agents/researcher.yaml) | 2 | Researches a question in the code, the existing decisions and memory; lists options with evidence; changes nothing. |
+| [`researcher`](agents/researcher.yaml) | 3 | Researches a question in the code, the existing decisions and memory; lists options with evidence; changes nothing. |
 | [`review-responder`](agents/review-responder.yaml) | 2 | Answers every review remark — fixes it or says why not — and refactors nothing else. |
 | [`reviewer`](agents/reviewer.yaml) | 2 | Reviews the branch with fresh eyes — correctness, security, performance, readability, tests — and gives a verdict. |
 | [`secops`](agents/secops.yaml) | 2 | Supply chain and runtime posture — dependency CVEs, SBOM, secrets, container and IaC scans — run with the image's scanners and interpreted, as a SARIF report. |
@@ -26,16 +26,16 @@ The agents of a governed software delivery, from triage to the production go or 
 
 The skill [`madr-4`](skills/madr-4/SKILL.md) (MADR 4.0.0 decision records, carried by `architect` and `reviewer`) ships with MADR's licence (`MIT OR CC0-1.0`, the MIT text in `LICENSE`) and its `PROVENANCE.json`. The gate rates it high risk (it links to adr.github.io), so installing this plugin waits for a second administrator (ADR 0050).
 
-Version 1.1.0, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
+Version 1.1.1, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 
 
-## Declared components (1.1.0)
+## Declared components (1.1.1)
 
 Every agent declares the five components of ADR 0127 (the core's S60-04), so that a version no longer
-inherits any of them from its project. Each agent's catalogue version is one higher than in 1.0.0, and no
-instruction changed. `tools.web` and `tools.extensions` are declared even when empty: a list that is present
+inherits any of them from its project. Each agent's catalogue version is one higher than in 1.0.0 (`researcher` two: 1.1.1 restores the
+web that 1.1.0 closed), and no instruction changed. `tools.web` and `tools.extensions` are declared even when empty: a list that is present
 closes its source. The project and the deployment still only tighten what is named here.
 
 | Agent | Model | `catalogue` | `extensions` | `web` | `memories` | Why |
@@ -48,7 +48,7 @@ closes its source. The project and the deployment still only tighten what is nam
 | `planner` | `profile:by_size` | none | none | none | `project/shared` write | Reads the specification; writes a plan. |
 | `qa` | `profile:by_size` | none | none | none | `project/shared` write | Runs `mutmut` or `stryker` from the runner image, edits tests. |
 | `release-notes-writer` | `profile:by_size` | none | none | none | `project/shared` write | Reads the specification and the diff. |
-| `researcher` | `profile:by_size` | none | none | none | `project/shared` write | Reads the repository, decision records and the project's memory (`search_memory`); its instructions do not name the web or a catalogue tool, so neither is declared. |
+| `researcher` | `profile:by_size` | none | none | `fetch`, `search` | `project/shared` write | Reads the repository, decision records and the project's memory (`search_memory`), and the web its project's network allows: its eval E5 (`research-injected-page`) searches and fetches pages. 1.1.0 declared no web, which closed it; 1.1.1 restores it. No catalogue tool is named. |
 | `review-responder` | `profile:by_size` | none | none | none | `project/shared` write | Fixes the remarks of a review in its workspace. |
 | `reviewer` | `profile:by_size` | none | none | none | `project/shared` write | Reads the diff. |
 | `secops` | `profile:by_size` | none | none | none | `project/shared` write | Runs `trivy` and `gitleaks` from the runner image. |
@@ -66,5 +66,5 @@ lessons go to the project's shared memory. A later version may narrow it.
 
 ```sh
 choregos plugin validate plugins/software-delivery
-choregos plugin pack plugins/software-delivery -o software-delivery-1.1.0.tar.gz   # same bytes every time
+choregos plugin pack plugins/software-delivery -o software-delivery-1.1.1.tar.gz   # same bytes every time
 ```
