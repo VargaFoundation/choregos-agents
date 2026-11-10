@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: review
   summary: Licences of dependencies, personal-data impact of a change, third-party terms — a review for the people who decide, never legal advice.
   outputs: [compliance_review, verdict]
@@ -36,3 +36,6 @@ agent:
       processed without a stated purpose.
     limits: { max_turns: 40, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

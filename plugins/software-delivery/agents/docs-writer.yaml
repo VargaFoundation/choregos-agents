@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: implement
   summary: Updates the user documentation, the changelog and the API reference from the branch's diff, and checks that every visible change is documented.
   outputs: [docs_report]
@@ -30,3 +30,6 @@ agent:
       you updated, and what is still undocumented"}`.
     limits: { max_turns: 50, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

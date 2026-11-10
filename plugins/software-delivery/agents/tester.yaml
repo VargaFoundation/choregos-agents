@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: verify
   summary: Runs the full checks, writes the missing tests for each acceptance criterion, never fixes application code.
 agent:
@@ -20,3 +20,6 @@ agent:
       and complete `evidence` (`tests_passed`, `tests_run`).
     limits: { max_turns: 60, max_minutes: 40 }
     budget: { run_usd: 6.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

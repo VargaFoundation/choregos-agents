@@ -5,7 +5,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: netops
-  version: 1.1.0
+  version: 1.2.0
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -16,7 +16,10 @@ metadata:
   # 1.1.0: the agent makes tool scripts its default (`spec.tools`, ADR 0122 §9), a field the core knows
   # from 0.24.1 (S57-15). An older core refuses an agent spec field it does not know, so it must never
   # install this version: it keeps 1.0.0. (1.0.0 needed 0.21.0, the first release that installs plugins.)
-  core: ">=0.24.1,<1.0.0"
+  # 1.2.0: every agent declares its five components (ADR 0127, S60-04): `model`, `tools.catalogue|extensions|web`,
+  # `memories`. An older core refuses the spec fields it does not know, so it keeps the previous version; the
+  # first core release with them (S60-01) is 0.25.1.
+  core: ">=0.25.1,<1.0.0"
 requires:
   plugins: []
   connectors: {}

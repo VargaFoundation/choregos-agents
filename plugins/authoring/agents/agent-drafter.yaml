@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: draft-agent
   summary: Drafts an agent (instructions, suggested skills, knowledge and connectors, a sample, eval cases) from a person's description; a person reviews it.
 agent:
@@ -43,3 +43,6 @@ agent:
         "evals": [{"name": "…", "input": {"title": "…", "body": "…"}, "must_contain": ["…"], "must_not_contain": []}]}`
     limits: { max_turns: 1, max_minutes: 2 }
     budget: { run_usd: 0.10 }
+    model: profile:standard
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: []

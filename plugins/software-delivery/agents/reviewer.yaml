@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: review
   summary: Reviews the branch with fresh eyes — correctness, security, performance, readability, tests — and gives a verdict.
 agent:
@@ -27,3 +27,6 @@ agent:
     limits: { max_turns: 40, max_minutes: 25 }
     budget: { run_usd: 4.0 }
     skills: [{ slug: madr-4 }]
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

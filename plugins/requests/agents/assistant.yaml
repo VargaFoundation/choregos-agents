@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: deliver
   summary: Produces the deliverable an approved brief asks for, citing every fact it takes from a source, and checks it against the brief's acceptance criteria; needs no repository.
   outputs: [deliverable_markdown]
@@ -29,3 +29,6 @@ agent:
       Write exactly these outputs: `{"deliverable_markdown": "…"}`.
     limits: { max_turns: 40, max_minutes: 30 }
     budget: { run_usd: 3.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: ["fetch"] }
+    memories: [{ scope: project, slug: shared, mode: write }]

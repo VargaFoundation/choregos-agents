@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: verify_prod
   summary: Release readiness and a rollout plan before the train; after it, reads logs and metrics through read-only connectors. Production stays behind the train.
   # Two moments, two subsets: readiness writes `rollout_plan` and `verdict`; verification writes
@@ -40,3 +40,6 @@ agent:
       {% endif %}
     limits: { max_turns: 40, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: ["group:observability"], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

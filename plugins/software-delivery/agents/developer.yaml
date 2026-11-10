@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: implement
   summary: Implements the specification inside the allowed paths, test first, small conventional commits.
 agent:
@@ -23,3 +23,6 @@ agent:
       `evidence` must reflect reality — `tests_passed`, `tests_run`: the platform measures them again.
     limits: { max_turns: 120, max_minutes: 90 }
     budget: { run_usd: 12.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

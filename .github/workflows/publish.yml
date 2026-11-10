@@ -22,8 +22,8 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io/vargafoundation/choregos-agents
-  # The core whose `choregos plugin` validates and packs; the same commit as ci.yml (the tag v0.24.1).
-  CHOREGOS_REF: 5f79219a56d6b3d730e3578feb23d18d0c7cfdd9
+  # The core whose `choregos plugin` validates and packs; the same commit as ci.yml (S60 on main, released as v0.25.1).
+  CHOREGOS_REF: 0a77ba219f811eceadcc4026478c168ff01ab1c9
   # The cosign release the core's API verifies with (docker/api.Dockerfile).
   COSIGN_RELEASE: v3.1.3
   ORAS_VERSION: 1.3.1

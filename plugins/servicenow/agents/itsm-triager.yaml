@@ -2,7 +2,7 @@
 # Modelled on the core catalogue's `netops` (ADR 0040 entry shape): reads first, evidence for every
 # claim, and every write proposed as a governed action that a person approves.
 catalogue:
-  version: 1
+  version: 2
   role: itsm-triager
   summary: Triages a ServiceNow incident from its record, journal, CI and similar incidents; proposes a classification and actions that a person approves, never writes on its own.
 agent:
@@ -85,6 +85,10 @@ agent:
       If the evidence does not support a classification, say so in Findings and propose only the work note.
     limits: { max_turns: 30, max_minutes: 15 }
     budget: { run_usd: 1.0 }
+    model: profile:by_size
+    # Everything it reaches is ServiceNow, through its connector: no catalogue tool, no extension, no web.
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]
     skills:
       - { slug: servicenow-triage }
     mcp_servers:

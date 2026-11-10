@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: release_notes
   summary: Writes user-facing release notes from the specification and the diff; changes no file.
 agent:
@@ -19,3 +19,6 @@ agent:
       Write exactly this output: `{"release_notes_markdown": "…"}`.
     limits: { max_turns: 20, max_minutes: 10 }
     budget: { run_usd: 1.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

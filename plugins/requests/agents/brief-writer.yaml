@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: brief
   summary: Turns a request from any trade into a one-page brief a person approves before anyone works on it; produces no deliverable and needs no repository.
   outputs: [spec_markdown, size, risk]
@@ -26,3 +26,6 @@ agent:
       Write exactly these outputs: `{"spec_markdown": "…", "size": "S|M|L|XL", "risk": "low|medium|high"}`.
     limits: { max_turns: 20, max_minutes: 15 }
     budget: { run_usd: 1.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]

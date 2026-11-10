@@ -4,7 +4,7 @@ Triage ServiceNow incidents with a Choregos agent, under human approval.
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `servicenow` 0.1.2, core `>=0.23.2,<1.0.0` (the first core that reads `matrix_cases` and `fake`) |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `servicenow` 0.2.0, core `>=0.25.1,<1.0.0` (the first core whose agents declare their five components, ADR 0127) |
 | Agent | [`agents/itsm-triager.yaml`](agents/itsm-triager.yaml) | reads, cites, proposes; every write waits for a person |
 | Skill | [`skills/servicenow-triage`](skills/servicenow-triage/SKILL.md) | impact/urgency matrix, escalation, work note vs customer comment |
 | Template | [`templates/itsm-incident-triage`](templates/itsm-incident-triage/README.md) | queue → triage → review (service desk) → apply → done |
@@ -12,6 +12,15 @@ Triage ServiceNow incidents with a Choregos agent, under human approval.
 | Matrix cases | [`evals/matrix/`](evals/matrix) | E3 and C1 of the core's tool-script matrix, in the core's agent-case format, declared in `contents.matrix_cases` (below) |
 | Procedure | [`procedures/connector.mcp.servicenow.md`](procedures/connector.mcp.servicenow.md) | OAuth integration, custom role, Business Rule |
 | Server | [`servers/servicenow.yaml`](servers/servicenow.yaml), [`server/`](server) | the MCP server over the Table API (below), and its `fake` for the eval matrix |
+
+## What the agent declares (ADR 0127)
+
+`itsm-triager` declares the five components of ADR 0127 (the core's S60-04), so that a version no longer
+inherits any of them from its project; its catalogue version is 2 and no instruction changed.
+
+| Agent | Model | `catalogue` | `extensions` | `web` | `memories` | Why |
+|:--|:--|:--|:--|:--|:--|:--|
+| `itsm-triager` | `profile:by_size` | none | none | none | `project/shared` write | Everything it reads and proposes goes through its `servicenow` connector (`mcp_servers`); it never browses, and the ticket's text is data, never a link to follow. |
 
 ```sh
 choregos plugin validate plugins/servicenow

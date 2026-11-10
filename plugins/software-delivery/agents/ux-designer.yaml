@@ -1,5 +1,5 @@
 catalogue:
-  version: 1
+  version: 2
   role: review
   summary: Reviews user-facing changes against the organisation's design system (a skill or a knowledge base) and checks accessibility, with axe when the project can run it.
   outputs: [ux_review, verdict]
@@ -30,3 +30,6 @@ agent:
       when anything is blocking — an accessibility failure on a changed screen is blocking.
     limits: { max_turns: 40, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    model: profile:by_size
+    tools: { catalogue: [], extensions: [], web: [] }
+    memories: [{ scope: project, slug: shared, mode: write }]
