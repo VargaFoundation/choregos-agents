@@ -21,8 +21,8 @@ metadata:
   # work-item context the core prepends to their instructions, both stable across 0.x.
   # 1.1.0: every agent declares its five components (ADR 0127, S60-04): `model`, `tools.catalogue|extensions|web`,
   # `memories`. An older core refuses the spec fields it does not know, so it keeps the previous version; the
-  # first core release with them (S60-01) is 0.25.0.
-  core: ">=0.25.0,<1.0.0"
+  # first core release with them (S60-01) is 0.25.1.
+  core: ">=0.25.1,<1.0.0"
 requires:
   plugins: []
   connectors: {}

@@ -7,7 +7,7 @@ The agents that write for the organisation itself, from the core's built-in cata
 | [`agent-drafter`](agents/agent-drafter.yaml) | 2 | Drafts an agent (instructions, suggested skills, knowledge and connectors, a sample, eval cases) from a person's description; a person reviews it. |
 | [`knowledge-distiller`](agents/knowledge-distiller.yaml) | 2 | Compiles a knowledge base into a principles skill, each principle citing the documents it comes from; a person approves it. |
 
-Version 1.1.0, core `>=0.25.0,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
+Version 1.1.0, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 

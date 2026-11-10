@@ -6,7 +6,7 @@ The `netops` agent of the core's built-in catalogue (ADR 0040, ADR 0052). It rea
 |:--|--:|:--|
 | [`netops`](agents/netops.yaml) | 4 | Diagnoses network behaviour from flows, policies and firewall rules; proposes every change as code, never applies one. |
 
-Version 1.2.0, core `>=0.25.0,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
+Version 1.2.0, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 
