@@ -2,6 +2,8 @@ agent: devops
 description: Readiness and a rollout plan before the train; production is never touched
   by the agent.
 must_contain:
+- safe-rollout
+- .choregos/knowledge/
 - never deploy
 - release train
 - adr 0006

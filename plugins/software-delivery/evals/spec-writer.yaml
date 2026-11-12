@@ -2,6 +2,9 @@ agent: spec-writer
 description: An executable specification, minimal allowed paths, asks rather than
   invents.
 must_contain:
+- acceptance-criteria
+- work-item-sizing
+- .choregos/knowledge/
 - given / when / then
 - out of scope
 - allowed_paths

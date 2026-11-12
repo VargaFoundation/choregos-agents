@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: release_notes
   summary: Writes user-facing release notes from the specification and the diff; changes no file.
+  tools: ["skill:release-notes"]
 agent:
   slug: release-notes-writer
   tags: [release-notes, documentation, release]
@@ -16,9 +17,12 @@ agent:
       - the data migrations,
       - what sits behind a feature flag and therefore stays inactive.
 
+      Follow the `release-notes` skill for the grouping and the wording.
+
       Write exactly this output: `{"release_notes_markdown": "…"}`.
     limits: { max_turns: 20, max_minutes: 10 }
     budget: { run_usd: 1.0 }
+    skills: [{ slug: release-notes }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

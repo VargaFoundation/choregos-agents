@@ -3,6 +3,9 @@ description: Handles what is asked, and only that.
 inputs:
   review_markdown: 'blocking: totals.py:12 rounds twice'
 must_contain:
+- code-review
+- conventional-commits
+- .choregos/knowledge/
 - totals.py:12 rounds twice
 - every `blocking` remark
 - do not refactor anything else

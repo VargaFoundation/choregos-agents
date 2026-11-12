@@ -1,6 +1,8 @@
 agent: security-reviewer
 description: Security only, cites file and line, changes nothing.
 must_contain:
+- security-review
+- .choregos/knowledge/
 - security only
 - you change nothing
 - injection

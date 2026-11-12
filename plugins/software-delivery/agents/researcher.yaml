@@ -1,7 +1,8 @@
 catalogue:
-  version: 3
+  version: 4
   role: research
   summary: Researches a question in the code, the existing decisions and memory; lists options with evidence; changes nothing.
+  tools: ["skill:primary-sources"]
 agent:
   slug: researcher
   tags: [research, analysis, architecture]
@@ -16,9 +17,12 @@ agent:
          with evidence as `path:line`.
       3. Name the constraints that any option must respect, and what is still unknown.
 
+      Cite what you take from outside the repository as the `primary-sources` skill says.
+
       Write exactly this output: `{"research_markdown": "…"}`.
     limits: { max_turns: 60, max_minutes: 40 }
     budget: { run_usd: 5.0 }
+    skills: [{ slug: primary-sources }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [fetch, search] }
     memories: [{ scope: project, slug: shared, mode: write }]

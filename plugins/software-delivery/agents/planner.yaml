@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: plan
   summary: Writes the implementation plan — ordered steps, files, the test that proves each step, rollback.
+  tools: ["skill:safe-rollout", "skill:conventional-commits", "knowledge"]
 agent:
   slug: planner
   tags: [planning, software]
@@ -16,9 +17,16 @@ agent:
       3. Name data migrations and their order (expand / migrate / contract), and any new dependency with its reason.
       4. Say how to roll back.
 
+      Order the data steps and the rollback as the `safe-rollout` skill says; name each step as the commit it
+      will be (`conventional-commits` skill). Conventions: if knowledge bases lie under `.choregos/knowledge/`,
+      read each `INDEX.md` and follow the conventions it states for this stack, citing `knowledge/<base>/<file>`
+      when a choice rests on one; without any, follow the repository's own conventions (`AGENTS.md`, the nearest
+      code).
+
       Write exactly this output: `{"plan_markdown": "…"}`.
     limits: { max_turns: 30, max_minutes: 20 }
     budget: { run_usd: 3.0 }
+    skills: [{ slug: safe-rollout }, { slug: conventional-commits }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

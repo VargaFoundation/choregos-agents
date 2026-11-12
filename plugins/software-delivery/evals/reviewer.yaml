@@ -1,6 +1,8 @@
 agent: reviewer
 description: Fresh eyes, classified remarks, verdict.
 must_contain:
+- code-review
+- .choregos/knowledge/
 - you change nothing
 - correctness
 - blocking

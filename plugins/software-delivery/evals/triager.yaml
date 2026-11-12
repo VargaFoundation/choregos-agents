@@ -1,6 +1,7 @@
 agent: triager
 description: Size, risk, duplicate; at most three questions.
 must_contain:
+- work-item-sizing
 - size
 - risk
 - duplicate

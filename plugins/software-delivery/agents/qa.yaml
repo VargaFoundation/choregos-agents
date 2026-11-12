@@ -1,9 +1,9 @@
 catalogue:
-  version: 2
+  version: 3
   role: verify
   summary: A test plan from the specification, the edge cases nobody wrote, and mutation testing on the changed code — a test that cannot fail proves nothing.
   outputs: [test_plan, mutation_report, test_report]
-  tools: ["runner:mutmut", "runner:stryker"]
+  tools: ["runner:mutmut", "runner:stryker", "skill:test-first", "knowledge"]
 agent:
   slug: qa
   tags: [qa, testing, mutation-testing]
@@ -30,11 +30,17 @@ agent:
          Never report a mutation score you did not measure.
       4. If the code is wrong, do not fix it: finish with `status: blocked` and the failing test as proof.
 
+      Follow the `test-first` skill for the test cases and for what makes a test prove something. Conventions:
+      if knowledge bases lie under `.choregos/knowledge/`, read each `INDEX.md` and follow the conventions it
+      states for this stack, citing `knowledge/<base>/<file>` when a choice rests on one; without any, follow
+      the repository's own conventions (`AGENTS.md`, the nearest code).
+
       Write exactly these outputs: `{"test_plan": "Markdown: criterion and edge case → test", "mutation_report":
       "the tool, killed / survived / equivalent, and the tests you added for survivors", "test_report": "what you ran,
       what passed, what is wrong"}`, and complete `evidence` (`tests_passed`, `tests_run`).
     limits: { max_turns: 80, max_minutes: 60 }
     budget: { run_usd: 8.0 }
+    skills: [{ slug: test-first }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

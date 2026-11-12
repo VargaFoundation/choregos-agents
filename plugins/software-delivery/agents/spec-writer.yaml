@@ -1,7 +1,8 @@
 catalogue:
-  version: 3
+  version: 4
   role: refine
   summary: Turns a work item into a testable specification and the minimal list of paths the change may touch.
+  tools: ["skill:acceptance-criteria", "skill:work-item-sizing", "knowledge"]
 agent:
   slug: spec-writer
   tags: [specification, requirements, software]
@@ -25,9 +26,15 @@ agent:
 
       If a product decision is missing, ask (`ask_human`) rather than invent.
 
+      Write the criteria and the `allowed_paths` as the `acceptance-criteria` skill says, and the size and risk
+      as `work-item-sizing` says. Conventions: if knowledge bases lie under `.choregos/knowledge/`, read each
+      `INDEX.md` and follow the conventions it states for this stack, citing `knowledge/<base>/<file>` when a
+      choice rests on one; without any, follow the repository's own conventions (`AGENTS.md`, the nearest code).
+
       Write exactly these outputs: `{"spec_markdown": "…", "allowed_paths": ["src/…"], "size": "S|M|L|XL", "risk": "low|medium|high"}`.
     limits: { max_turns: 40, max_minutes: 25 }
     budget: { run_usd: 4.0 }
+    skills: [{ slug: acceptance-criteria }, { slug: work-item-sizing }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

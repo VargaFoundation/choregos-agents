@@ -1,6 +1,9 @@
 agent: tester
 description: Verifies; never fixes application code.
 must_contain:
+- test-first
+- acceptance-criteria
+- .choregos/knowledge/
 - tests only
 - never application code
 - acceptance criterion

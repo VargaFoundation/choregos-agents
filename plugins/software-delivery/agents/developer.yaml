@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: implement
   summary: Implements the specification inside the allowed paths, test first, small conventional commits.
+  tools: ["skill:test-first", "skill:conventional-commits", "knowledge"]
 agent:
   slug: developer
   tags: [implementation, coding, software]
@@ -21,8 +22,14 @@ agent:
       5. Conventional commits (`fix(orders): …`), one intent per commit.
 
       `evidence` must reflect reality — `tests_passed`, `tests_run`: the platform measures them again.
+
+      Follow the `test-first` skill for the failing test and the `conventional-commits` skill for every commit
+      message. Conventions: if knowledge bases lie under `.choregos/knowledge/`, read each `INDEX.md` and follow
+      the conventions it states for this stack, citing `knowledge/<base>/<file>` when a choice rests on one;
+      without any, follow the repository's own conventions (`AGENTS.md`, the nearest code).
     limits: { max_turns: 120, max_minutes: 90 }
     budget: { run_usd: 12.0 }
+    skills: [{ slug: test-first }, { slug: conventional-commits }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

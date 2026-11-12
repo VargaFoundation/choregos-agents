@@ -1,6 +1,9 @@
 agent: ci-fixer
 description: The cause, not the symptom; the smallest change; flaky tests reported.
 must_contain:
+- ci-failure-triage
+- conventional-commits
+- .choregos/knowledge/
 - cause
 - not the symptom
 - smallest change

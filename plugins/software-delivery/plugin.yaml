@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: software-delivery
-  version: 1.1.1
+  version: 1.2.0
   publisher: Varga Foundation
   license: Apache-2.0
   description: >-
@@ -23,6 +23,11 @@ metadata:
   # `memories`. An older core refuses the spec fields it does not know, so it keeps the previous version; the
   # first core release with them (S60-01) is 0.25.1. 1.1.1: `researcher` declares `web: [fetch, search]`,
   # which its eval E5 reads and 1.1.0 had closed.
+  # 1.2.0: the agents carry what their instructions use. Ten generic skills (`test-first`, `conventional-commits`,
+  # `code-review`, `security-review`, `release-notes`, `ci-failure-triage`, `work-item-sizing`, `acceptance-criteria`,
+  # `safe-rollout`, `primary-sources`) join `madr-4`; `architect` declares `web: [fetch]` for primary sources; the agents
+  # that apply an organisation's conventions say to read the knowledge bases under `.choregos/knowledge/`.
+  # Needs the skills the 1.1.x agents did not name, so the agents it changes are offered as a new version.
   core: ">=0.25.1,<1.0.0"
 requires:
   plugins: []
@@ -49,7 +54,17 @@ contents:
     - agents/triager.yaml
     - agents/ux-designer.yaml
   skills:
+    - skills/acceptance-criteria
+    - skills/ci-failure-triage
+    - skills/code-review
+    - skills/conventional-commits
     - skills/madr-4
+    - skills/primary-sources
+    - skills/release-notes
+    - skills/safe-rollout
+    - skills/security-review
+    - skills/test-first
+    - skills/work-item-sizing
   evals:
     - evals/architect-accept.yaml
     - evals/architect.yaml
