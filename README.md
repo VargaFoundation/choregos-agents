@@ -30,7 +30,7 @@ ships two (E3 and C1 of the tool-script matrix).
 | Plugin | What it does |
 |:--|:--|
 | [`servicenow`](plugins/servicenow) | Triage ServiceNow incidents under human approval: the `itsm-triager` agent, an `itsm-incident-triage` template, the MCP server over the Table API (tracker included), the instance set-up procedure |
-| [`software-delivery`](plugins/software-delivery) | The 19 agents of a governed software delivery, from triage to the production go or no-go, with the `madr-4` skill and their evals |
+| [`software-delivery`](plugins/software-delivery) | The 19 agents of a governed software delivery, from triage to the production go or no-go, with eleven skills (`madr-4`, `test-first`, `code-review`, …) and their evals |
 | [`netops`](plugins/netops) | The `netops` agent: network diagnosis through the pfSense, Cilium and nginx connectors, every change proposed as code |
 | [`authoring`](plugins/authoring) | The agents that draft an organisation's agents and distil its knowledge bases into skills |
 | [`mcp-clients`](plugins/mcp-clients) | The external MCP clients: ChatGPT, Claude (claude.ai, Code, Desktop), Copilot in VS Code, Cursor |

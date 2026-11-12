@@ -3,6 +3,8 @@ description: 'After the train: reads observability read-only, invents no figure.
 inputs:
   rollout_plan: Canary 10 % for 30 min; rollback if 5xx > 1 %.
 must_contain:
+- safe-rollout
+- .choregos/knowledge/
 - canary 10 %
 - read-only
 - loki

@@ -1,10 +1,10 @@
 catalogue:
   # 2: challenges the request against the knowledge bases attached to it, with mandatory citations (S33-06).
-  version: 3
+  version: 4
   role: architect
   summary: Writes one architecture decision record in MADR 4 format, citing the enterprise framework when a knowledge base holds it; once approved, marks it accepted.
   outputs: [adr_path, adr_markdown]
-  tools: ["skill:madr-4", "knowledge"]
+  tools: ["skill:madr-4", "knowledge", "skill:primary-sources", "web:fetch"]
 agent:
   slug: architect
   tags: [madr, architecture, design]
@@ -28,6 +28,10 @@ agent:
          follows or departs from. **Citations are mandatory**: every statement about the organisation's framework
          cites its source as `knowledge/<base>/<file>`, and a statement you cannot cite is removed. Without any
          knowledge base, the record's context says that no enterprise framework was consulted.
+      5. **External facts**: when an option depends on a standard, a product's behaviour, a licence or a version that
+         the repository does not show, fetch the primary source (web fetch) and cite it as the `primary-sources`
+         skill says: the URL and the version or date, beside the claim. A page you could not read is not a source:
+         say the claim is unverified.
 
       Write exactly these outputs: `{"adr_path": "docs/adr/NNNN-….md", "adr_markdown": "the full text of the file"}`.
       {% else %}The deciders approved `{{ inputs.get('adr_path', '') }}` — your record, the one file this branch adds under
@@ -42,7 +46,7 @@ agent:
       {% endif %}
     limits: { max_turns: 60, max_minutes: 40 }
     budget: { run_usd: 5.0 }
-    skills: [{ slug: madr-4 }]
+    skills: [{ slug: primary-sources }, { slug: madr-4 }]
     model: profile:by_size
-    tools: { catalogue: [], extensions: [], web: [] }
+    tools: { catalogue: [], extensions: [], web: [fetch] }
     memories: [{ scope: project, slug: shared, mode: write }]

@@ -1,6 +1,7 @@
 agent: release-notes-writer
 description: User words; behaviour, migrations, flags.
 must_contain:
+- release-notes
 - user's words
 - new
 - fixed

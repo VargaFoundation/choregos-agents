@@ -1,7 +1,8 @@
 catalogue:
-  version: 3
+  version: 4
   role: verify_prod
   summary: After the release train has deployed, checks production read-only and gives a go or no-go.
+  tools: ["skill:safe-rollout"]
 agent:
   slug: prod-verifier
   tags: [production, verification, release]
@@ -12,6 +13,8 @@ agent:
       The release train has deployed this change. You verify it. **Read-only**: you change nothing, anywhere.
       The platform deploys; you never do.
 
+      Judge the release against the success signals and rollback triggers the `safe-rollout` skill asks a
+      rollout plan to state.
       {% if production_indicators %}
       Production indicator sources configured for this project: {{ production_indicators | join(', ') }}.
 
@@ -36,6 +39,7 @@ agent:
       and put the figures in `summary`.
     limits: { max_turns: 25, max_minutes: 15 }
     budget: { run_usd: 2.0 }
+    skills: [{ slug: safe-rollout }]
     model: profile:by_size
     tools: { catalogue: ["group:observability"], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

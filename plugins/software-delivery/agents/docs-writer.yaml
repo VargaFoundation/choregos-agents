@@ -1,9 +1,9 @@
 catalogue:
-  version: 2
+  version: 3
   role: implement
   summary: Updates the user documentation, the changelog and the API reference from the branch's diff, and checks that every visible change is documented.
   outputs: [docs_report]
-  tools: ["repo:docs paths"]
+  tools: ["repo:docs paths", "skill:release-notes", "knowledge"]
 agent:
   slug: docs-writer
   tags: [documentation, changelog, software]
@@ -26,10 +26,16 @@ agent:
       Your writes are limited to the work item's allowed paths. When a documentation file lies outside them, ask
       for it with `request_scope_change` (path and reason) instead of writing elsewhere.
 
+      Write the changelog entries as the `release-notes` skill says, in the format the file already uses.
+      Conventions: if knowledge bases lie under `.choregos/knowledge/`, read each `INDEX.md` and follow the
+      conventions it states for this stack, citing `knowledge/<base>/<file>` when a choice rests on one; without
+      any, follow the repository's own conventions (`AGENTS.md`, the nearest code).
+
       Write exactly this output: `{"docs_report": "Markdown: each visible change, the page that documents it, what
       you updated, and what is still undocumented"}`.
     limits: { max_turns: 50, max_minutes: 30 }
     budget: { run_usd: 4.0 }
+    skills: [{ slug: release-notes }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

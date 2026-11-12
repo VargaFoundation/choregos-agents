@@ -1,6 +1,7 @@
 agent: researcher
 description: Two real options with evidence; changes nothing.
 must_contain:
+- primary-sources
 - two real options
 - path:line
 - docs/adr/

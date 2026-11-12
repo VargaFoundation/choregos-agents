@@ -4,6 +4,9 @@ description: 'MADR 4, and with a knowledge base: challenge the request, citation
 inputs:
   research_markdown: 'Two options: a queue or a cron.'
 must_contain:
+- primary-sources
+- web fetch
+- unverified
 - madr-4
 - two real options
 - chosen option

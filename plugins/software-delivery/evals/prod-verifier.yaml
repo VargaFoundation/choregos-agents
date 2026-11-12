@@ -1,6 +1,7 @@
 agent: prod-verifier
 description: 'Read-only; the platform deploys; no indicator source: a measured smoke_ok is enough, and the verdict says so.'
 must_contain:
+- safe-rollout
 - read-only
 - the platform deploys; you never do
 - smoke_

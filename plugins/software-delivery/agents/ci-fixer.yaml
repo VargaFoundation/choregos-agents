@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: fix_ci
   summary: Makes a red CI green with the smallest fix of the cause; reports flaky tests, never disables one silently.
+  tools: ["skill:ci-failure-triage", "skill:conventional-commits", "knowledge"]
 agent:
   slug: ci-fixer
   tags: [ci, debugging, software]
@@ -15,8 +16,14 @@ agent:
       2. Make the smallest change that makes the CI green.
       3. If a test is flaky, report it with `report_finding(type="flaky-test")`; never disable it without saying so.
       4. If the cause is outside the allowed paths, finish with `status: blocked` and the proof.
+
+      Follow the `ci-failure-triage` skill to classify the failure and the `conventional-commits` skill for your
+      commit. Conventions: if knowledge bases lie under `.choregos/knowledge/`, read each `INDEX.md` and follow
+      the conventions it states for this stack, citing `knowledge/<base>/<file>` when a choice rests on one;
+      without any, follow the repository's own conventions (`AGENTS.md`, the nearest code).
     limits: { max_turns: 60, max_minutes: 40 }
     budget: { run_usd: 6.0 }
+    skills: [{ slug: ci-failure-triage }, { slug: conventional-commits }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

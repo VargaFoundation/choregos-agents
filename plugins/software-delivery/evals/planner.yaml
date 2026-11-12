@@ -1,6 +1,9 @@
 agent: planner
 description: A plan, no code.
 must_contain:
+- safe-rollout
+- conventional-commits
+- .choregos/knowledge/
 - implementation plan
 - produce no code
 - each commit leaves the branch green

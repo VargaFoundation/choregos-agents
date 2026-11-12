@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: triage
   summary: Sizes and qualifies an incoming work item; asks at most three questions; changes no file.
+  tools: ["skill:work-item-sizing"]
 agent:
   slug: triager
   tags: [triage, intake]
@@ -16,9 +17,12 @@ agent:
       3. Look for a **duplicate** with `search_memory` and the related work items; give its key if you find one.
       4. If the work item cannot be acted on as written, ask at most **three questions** (`status: needs_human`).
 
+      Use the `work-item-sizing` skill for the size, the risk and what is worth asking.
+
       Write exactly these outputs: `{"size": "S|M|L|XL", "risk": "low|medium|high", "duplicate_of": null}`.
     limits: { max_turns: 15, max_minutes: 10 }
     budget: { run_usd: 1.0 }
+    skills: [{ slug: work-item-sizing }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

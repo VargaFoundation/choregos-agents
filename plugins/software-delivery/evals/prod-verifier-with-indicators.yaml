@@ -2,6 +2,7 @@ agent: prod-verifier
 description: 'An indicator source is configured: before/after figures are required, no-go when in doubt.'
 production_indicators: [grafana]
 must_contain:
+- safe-rollout
 - read-only
 - 'production indicator sources configured for this project: grafana'
 - before and after the release

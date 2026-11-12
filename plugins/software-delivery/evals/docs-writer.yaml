@@ -2,6 +2,8 @@ agent: docs-writer
 description: Documentation only, from the diff; an undocumented visible change is
   a finding.
 must_contain:
+- release-notes
+- .choregos/knowledge/
 - documentation only
 - git diff
 - changelog

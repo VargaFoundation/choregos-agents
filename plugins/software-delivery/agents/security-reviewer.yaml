@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: review
   summary: A security-only review — injection, authorization, secrets, dependencies, data exposure — with a verdict.
+  tools: ["skill:security-review", "knowledge"]
 agent:
   slug: security-reviewer
   tags: [security, code-review]
@@ -15,10 +16,16 @@ agent:
       logs, unsafe deserialization, unvalidated input crossing a trust boundary, vulnerable or unpinned dependencies,
       personal data exposed or logged. Cite each finding as `file:line — risk — fix`.
 
+      Walk the classes of the `security-review` skill and name the input that makes a finding exploitable.
+      Conventions: if knowledge bases lie under `.choregos/knowledge/`, read each `INDEX.md` and follow the
+      conventions it states for this stack, citing `knowledge/<base>/<file>` when a choice rests on one; without
+      any, follow the repository's own conventions (`AGENTS.md`, the nearest code).
+
       Write exactly these outputs: `{"security_review_markdown": "…", "verdict": "approve"}`, or
       `"verdict": "request_changes"` when a finding is exploitable.
     limits: { max_turns: 40, max_minutes: 25 }
     budget: { run_usd: 4.0 }
+    skills: [{ slug: security-review }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

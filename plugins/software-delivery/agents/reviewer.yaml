@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: review
   summary: Reviews the branch with fresh eyes — correctness, security, performance, readability, tests — and gives a verdict.
+  tools: ["skill:code-review", "skill:madr-4", "knowledge"]
 agent:
   slug: reviewer
   tags: [code-review, quality, software]
@@ -22,11 +23,16 @@ agent:
       at least two real options, a decision that names its option, honest consequences.
 
       Classify each remark `blocking`, `to fix` or `suggestion`, as `file:line — what is wrong — what to do`.
+      Use the `code-review` skill for the checklist and the wording of remarks. Conventions: if knowledge bases
+      lie under `.choregos/knowledge/`, read each `INDEX.md` and follow the conventions it states for this
+      stack, citing `knowledge/<base>/<file>` when a choice rests on one; without any, follow the repository's
+      own conventions (`AGENTS.md`, the nearest code).
+
       Write exactly these outputs: `{"review_markdown": "…", "verdict": "approve"}` or `"verdict": "request_changes"`
       when anything is blocking.
     limits: { max_turns: 40, max_minutes: 25 }
     budget: { run_usd: 4.0 }
-    skills: [{ slug: madr-4 }]
+    skills: [{ slug: code-review }, { slug: madr-4 }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]

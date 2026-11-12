@@ -1,7 +1,8 @@
 catalogue:
-  version: 2
+  version: 3
   role: address_review
   summary: Answers every review remark — fixes it or says why not — and refactors nothing else.
+  tools: ["skill:code-review", "skill:conventional-commits", "knowledge"]
 agent:
   slug: review-responder
   tags: [code-review, software]
@@ -19,9 +20,16 @@ agent:
       2. Every `blocking` remark must be handled.
       3. Do not refactor anything else on the way: that would need a new review.
 
+      Answer as the `code-review` skill says (fixed with where, or declined in one sentence) and commit as the
+      `conventional-commits` skill says. Conventions: if knowledge bases lie under `.choregos/knowledge/`, read
+      each `INDEX.md` and follow the conventions it states for this stack, citing `knowledge/<base>/<file>` when
+      a choice rests on one; without any, follow the repository's own conventions (`AGENTS.md`, the nearest
+      code).
+
       Write exactly this output: `{"review_markdown": "point-by-point answers"}`.
     limits: { max_turns: 80, max_minutes: 60 }
     budget: { run_usd: 8.0 }
+    skills: [{ slug: code-review }, { slug: conventional-commits }]
     model: profile:by_size
     tools: { catalogue: [], extensions: [], web: [] }
     memories: [{ scope: project, slug: shared, mode: write }]
