@@ -69,6 +69,7 @@ def test_events_in_the_next_hours_oldest_first(mcp: Mcp) -> None:
     assert first["organizer"] == {"name": "Camille Martin", "address": CAMILLE}
     assert {a["address"]: a["type"] for a in first["attendees"]} == {ALEX: "required", ROOM: "resource"}
     assert first["one_to_one"] is True  # the room is not a person
+    assert all(e["id"] for e in result["events"]) and len({e["id"] for e in result["events"]}) == 4
     assert result["truncated"] is False
     assert "body" not in json.dumps(result).lower()
 

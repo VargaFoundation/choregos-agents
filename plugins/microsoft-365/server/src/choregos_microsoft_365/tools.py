@@ -57,6 +57,8 @@ class Attendee(Person):
 
 
 class Event(BaseModel):
+    #: Graph's id of the event: stable, opaque, for telling events apart (never needed to read it again).
+    id: str | None
     subject: str | None
     start: str | None
     end: str | None
@@ -237,7 +239,7 @@ class Tools:
             "startDateTime": iso(low),
             "endDateTime": iso(high),
             "$top": str(PAGE),
-            "$select": "subject,start,end,isAllDay,organizer,attendees,isOrganizer,isOnlineMeeting,isCancelled",
+            "$select": "id,subject,start,end,isAllDay,organizer,attendees,isOrganizer,isOnlineMeeting,isCancelled",
             "$orderby": "start/dateTime",
         }
         matched: list[Event] = []
@@ -394,6 +396,7 @@ def _list(raw: dict[str, Any], key: str) -> list[Any]:
 
 
 class _Event(BaseModel):
+    id: str | None
     subject: str | None
     start: str | None
     end: str | None
@@ -406,6 +409,7 @@ class _Event(BaseModel):
 
     def public(self, one_to_one: bool) -> Event:
         return Event(
+            id=self.id,
             subject=self.subject,
             start=self.start,
             end=self.end,
@@ -439,6 +443,7 @@ def _event(raw: dict[str, Any]) -> _Event:
         )
     start, end = graph_moment(raw.get("start")), graph_moment(raw.get("end"))
     return _Event(
+        id=raw.get("id") if isinstance(raw.get("id"), str) else None,
         subject=raw.get("subject") if isinstance(raw.get("subject"), str) else None,
         start=iso(start) if start else None,
         end=iso(end) if end else None,

@@ -64,6 +64,7 @@ def _event(
     resources: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     return {
+        "id": f"AAMk-{subject.lower().replace(' ', '-').replace('/', '')}-{int(start.timestamp())}",
         "subject": subject,
         "start": _slot(start),
         "end": _slot(start + timedelta(minutes=minutes)),
