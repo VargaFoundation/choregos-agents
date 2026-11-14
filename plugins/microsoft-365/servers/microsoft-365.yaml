@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+# The Microsoft 365 MCP server, as the platform runs and governs it (ADR 0096). Source: ../server.
+# It reads Microsoft Graph as the person a call is made for, with that person's token only (a
+# `user_consent` connected account, the core's ADR 0135, sent in X-Choregos-User-Token), and refuses a
+# call without one: it holds no credential and no identity of its own, and stores nothing.
+name: microsoft-365
+# CI fills the digest when it builds, signs and publishes the image; the zeros are never pullable.
+image: ghcr.io/vargafoundation/choregos-agents/microsoft-365-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
+port: 8080
+protocol: mcp-http
+# MCP at /mcp, behind the platform's bearer token (CHOREGOS_SERVER_TOKEN); the health probe stays open.
+paths: {mcp: /mcp, health: /healthz}
+
+# The connector's configuration is how the PLATFORM reaches the person's account, not the server's:
+# `identity_modes` and `user_consent` are what the core reads to run the consent and draw a token per
+# call (services/connected_accounts.py). They are declared here so that an administrator cannot widen
+# them: `user_consent` is the only mode (the server has no identity of its own), the endpoints are those of
+# one Entra tenant (never `common` or `organizations`), and the scopes are the plugin's delegated
+# permissions, nothing else. The server reads neither variable. See
+# procedures/connector.mcp.microsoft-365.md.
+config_schema:
+  type: object
+  additionalProperties: false
+  properties:
+    identity_modes:
+      type: array
+      description: Always [user_consent]; each person connects their own Microsoft 365 account.
+      items: {enum: [user_consent]}
+      minItems: 1
+      maxItems: 1
+      x-env: M365_IDENTITY_MODES
+    user_consent:
+      type: object
+      description: The Entra application each person consents to.
+      additionalProperties: false
+      required: [authorization_endpoint, token_endpoint, client_id, client_secret_ref, scopes]
+      properties:
+        authorization_endpoint:
+          type: string
+          description: https://login.microsoftonline.com/<tenant id>/oauth2/v2.0/authorize
+          pattern: "^https://login\\.microsoftonline\\.com/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/oauth2/v2\\.0/authorize$"
+        token_endpoint:
+          type: string
+          description: https://login.microsoftonline.com/<tenant id>/oauth2/v2.0/token
+          pattern: "^https://login\\.microsoftonline\\.com/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/oauth2/v2\\.0/token$"
+        client_id:
+          type: string
+          description: The application (client) id of the Entra application.
+          pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        client_secret_ref:
+          type: string
+          description: Where the platform reads the application's client secret, e.g. env:CONNECTOR_MICROSOFT_365_CLIENT_SECRET.
+          pattern: "^(env|store):[A-Za-z0-9_./-]{1,200}$"
+        scopes:
+          type: array
+          description: The delegated permissions asked; offline_access and Calendars.Read always, Mail.Read and Chat.Read for the mail and chat reads.
+          uniqueItems: true
+          items: {enum: [offline_access, Calendars.Read, Mail.Read, Chat.Read]}
+          allOf:
+            - contains: {const: offline_access}
+            - contains: {const: Calendars.Read}
+      x-env: M365_USER_CONSENT
+
+# The only host the server may reach. The platform, not the server, calls login.microsoftonline.com.
+egress:
+  hosts: [graph.microsoft.com]
+
+# Reads only. Graph decides what the person may read; the server minimises what it returns.
+operations:
+  - name: list_events_with
+    access: read
+    description: The person's calendar events in a window, optionally with another person or one-to-one only (Calendars.Read).
+  - name: search_mail_with
+    access: read
+    description: The person's mail threads with another person, since a date; snippets only, never a body nor an attachment (Mail.Read).
+  - name: search_chats_with
+    access: read
+    description: The person's Teams one-to-one and group chats with another person, since a date; the latest message's snippet only (Chat.Read).
+
+# How the platform runs this server on its fake for the eval matrix (core #1372): the variable that
+# switches it to its seeded in-memory tenant (server/src/choregos_microsoft_365/fake.py), which no
+# configuration field reaches. The platform adds its own token (CHOREGOS_SERVER_TOKEN) and nothing of the
+# configuration. A call still needs a person's token: the fake reads Camille's mailbox for any token.
+fake:
+  env: {M365_FAKE: "1"}
+  scenes: [default]
