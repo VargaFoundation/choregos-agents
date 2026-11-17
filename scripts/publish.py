@@ -4,7 +4,7 @@
 Run with the core's environment, from `.github/workflows/publish.yml`:
 
     uv run --package choregos-cli python scripts/publish.py plugins \\
-        --registry ghcr.io/vargafoundation/choregos-agents --source-url https://github.com/…
+        --registry ghcr.io/graalsystems/tranibor-agents --source-url https://github.com/…
 
 For each plugin directory, in name order:
 
@@ -335,8 +335,8 @@ def publish_all(plugins_dir: Path, registry: str, client: Registry | None, work:
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("plugins", type=Path, help="the directory whose subdirectories are plugins")
-    parser.add_argument("--registry", required=True, help="e.g. ghcr.io/vargafoundation/choregos-agents")
-    parser.add_argument("--source-url", default="https://github.com/VargaFoundation/choregos-agents")
+    parser.add_argument("--registry", required=True, help="e.g. ghcr.io/graalsystems/tranibor-agents")
+    parser.add_argument("--source-url", default="https://github.com/graalsystems/tranibor-agents")
     parser.add_argument("--work", type=Path, help="where to stage and pack (a temporary directory)")
     parser.add_argument("--offline", action="store_true", help="no registry, docker nor cosign")
     parser.add_argument("--no-sign", action="store_true", help="push without signing")

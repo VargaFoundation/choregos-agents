@@ -4,7 +4,7 @@ name: publish
 # signed, the plugin packed with their digests, pushed as an OCI artifact and signed, then the index of
 # every published version pushed and signed (CONTRIBUTING.md, "Publishing"). Signatures are keyless:
 # the identity a deployment trusts is this file on main,
-#   https://github.com/VargaFoundation/choregos-agents/.github/workflows/publish.yml@refs/heads/main
+#   https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
 # with the issuer https://token.actions.githubusercontent.com (README.md, "Installing").
 
 on:
@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY: ghcr.io/vargafoundation/choregos-agents
+  REGISTRY: ghcr.io/graalsystems/tranibor-agents
   # The core whose `choregos plugin` validates and packs; the same commit as ci.yml (S60 on main, released as v0.25.1).
   CHOREGOS_REF: 0a77ba219f811eceadcc4026478c168ff01ab1c9
   # The cosign release the core's API verifies with (docker/api.Dockerfile).
@@ -43,7 +43,7 @@ jobs:
         with: { path: agents, persist-credentials: false }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: VargaFoundation/choregos
+          repository: graalsystems/tranibor
           ref: ${{ env.CHOREGOS_REF }}
           path: core
           persist-credentials: false

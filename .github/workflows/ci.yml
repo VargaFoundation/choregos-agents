@@ -10,7 +10,7 @@ permissions:
 
 env:
   # The core whose validator, packer, eval matrix and publication library every job runs: the main commit
-  # that merged S60 (VargaFoundation/choregos#1488), whose schemas accept an agent's `tools.catalogue`,
+  # that merged S60 (graalsystems/tranibor#1488), whose schemas accept an agent's `tools.catalogue`,
   # `extensions` and `web` (ADR 0127); its release is v0.25.1. publish.yml pins the same commit.
   CHOREGOS_REF: 0a77ba219f811eceadcc4026478c168ff01ab1c9
 
@@ -46,7 +46,7 @@ jobs:
         with: { path: agents }
       - uses: actions/checkout@v4
         with:
-          repository: VargaFoundation/choregos
+          repository: graalsystems/tranibor
           ref: ${{ env.CHOREGOS_REF }}
           path: core
       - uses: astral-sh/setup-uv@v6
@@ -85,7 +85,7 @@ jobs:
         with: { path: agents }
       - uses: actions/checkout@v4
         with:
-          repository: VargaFoundation/choregos
+          repository: graalsystems/tranibor
           ref: ${{ env.CHOREGOS_REF }}
           path: core
       - uses: astral-sh/setup-uv@v6
@@ -139,7 +139,7 @@ jobs:
         with: { path: agents }
       - uses: actions/checkout@v4
         with:
-          repository: VargaFoundation/choregos
+          repository: graalsystems/tranibor
           ref: ${{ env.CHOREGOS_REF }}
           path: core
       - uses: astral-sh/setup-uv@v6
@@ -151,7 +151,7 @@ jobs:
           uv sync --frozen --package choregos-cli
           uv run --frozen --package choregos-cli --with pytest pytest -q "$GITHUB_WORKSPACE/agents/scripts/tests"
           uv run --frozen --package choregos-cli python "$GITHUB_WORKSPACE/agents/scripts/publish.py" \
-            "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/vargafoundation/choregos-agents --offline
+            "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
     needs: [servers, plugins, matrix, secrets, dco, publication]

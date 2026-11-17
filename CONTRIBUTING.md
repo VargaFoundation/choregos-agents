@@ -39,7 +39,7 @@ the DCO. Every job that needs the core runs it at one commit, `CHOREGOS_REF` in 
 
 ## Matrix cases and a server's fake
 
-A plugin may ship cases of the core's eval matrix (VargaFoundation/choregos#1372; `metadata.core` from
+A plugin may ship cases of the core's eval matrix (graalsystems/tranibor#1372; `metadata.core` from
 0.23.2, the first core whose schemas accept them): agent cases in the core's own format
 (`choregos_playbooks.evals.agents`; the core's runbook `docs/runbooks/live-eval-matrix.md`, "A plugin's
 cases"), declared in the manifest:
@@ -112,10 +112,10 @@ On every push to `main` (or a manual run on `main`), `.github/workflows/publish.
 `scripts/publish.py`. For each plugin whose `metadata.version` is not in the registry yet:
 
 1. **Its servers.** A server whose `image` is the placeholder
-   `ghcr.io/vargafoundation/choregos-agents/<image>@sha256:0000…0000` is built from `server/<server>/`
+   `ghcr.io/graalsystems/tranibor-agents/<image>@sha256:0000…0000` is built from `server/<server>/`
    (or `server/` when the plugin has one server), pushed as `<image>:<plugin version>` and signed.
    The image repository is the one the server file names; it must live under
-   `ghcr.io/vargafoundation/choregos-agents/` and not be a plugin's name or `index`. An image already
+   `ghcr.io/graalsystems/tranibor-agents/` and not be a plugin's name or `index`. An image already
    pinned to a real digest is used as it is.
 2. **The digest goes into the packed descriptor, not into git.** The declared files are copied to a
    staging directory, the placeholder replaced there by the image's digest, and the copy is packed with
@@ -124,14 +124,14 @@ On every push to `main` (or a manual run on `main`), `.github/workflows/publish.
    is the packed archive's, which holds the real digest. The repository keeps the placeholder, which is
    never pullable, so nothing generated is committed back. Consequence: for a plugin with a server, the
    digest `choregos plugin validate` prints on the tree is not the published one.
-3. **The plugin.** ORAS pushes the archive as `ghcr.io/vargafoundation/choregos-agents/<plugin>:<version>`
+3. **The plugin.** ORAS pushes the archive as `ghcr.io/graalsystems/tranibor-agents/<plugin>:<version>`
    (one layer, `application/vnd.choregos.plugin.v1.tar+gzip`); cosign signs its manifest digest.
-4. **The index.** The published `ghcr.io/vargafoundation/choregos-agents/index` (tag `latest`, one
+4. **The index.** The published `ghcr.io/graalsystems/tranibor-agents/index` (tag `latest`, one
    layer `application/vnd.choregos.plugin-index.v1+yaml`) is read, the new versions added — every
    version ever published stays listed, with its digest and `core` range — and it is pushed and signed.
 
 Signatures are keyless, with the workflow's GitHub OIDC token: the identity is
-`https://github.com/VargaFoundation/choregos-agents/.github/workflows/publish.yml@refs/heads/main`, the
+`https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main`, the
 issuer `https://token.actions.githubusercontent.com`, as in the README's trust policy.
 
 **A published version is immutable.** When `<plugin>:<version>` already exists, the published archive is
@@ -149,6 +149,6 @@ To try the publication without a registry:
 ```sh
 cd <core checkout> && uv sync --package choregos-cli
 uv run --package choregos-cli python <this repo>/scripts/publish.py <this repo>/plugins \
-    --registry ghcr.io/vargafoundation/choregos-agents --offline --work /tmp/publish
+    --registry ghcr.io/graalsystems/tranibor-agents --offline --work /tmp/publish
 uv run --package choregos-cli --with pytest pytest <this repo>/scripts/tests
 ```

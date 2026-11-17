@@ -54,7 +54,7 @@ incidents share, the vague `INC0012399`.
 [`evals/matrix/`](evals/matrix) holds two cases of the core's tool-script matrix (S57-09), in the core's
 agent-case format (`choregos_playbooks.evals.agents`, the core's runbook
 `docs/runbooks/live-eval-matrix.md`), declared in `plugin.yaml`'s `contents.matrix_cases`
-(VargaFoundation/choregos#1372): the core's eval matrix names them `plugin:servicenow/<file stem>` and
+(graalsystems/tranibor#1372): the core's eval matrix names them `plugin:servicenow/<file stem>` and
 plays each in two cells, `mcp` (the model calls the tools one by one) and `scripts` (it may call them from
 a script, `from choregos_tools import …`), judging it on its answer and on what its run did. Their
 connector is this plugin's server, `{kind: "plugin:servicenow/servicenow", scene: default}`.

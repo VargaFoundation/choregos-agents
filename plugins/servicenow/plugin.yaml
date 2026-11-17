@@ -6,14 +6,14 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: servicenow
-  version: 0.2.0
-  publisher: Varga Foundation
+  version: 0.2.1
+  publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
     Triage ServiceNow incidents under human approval: an agent reads the incident, its CI and similar
     incidents, cites knowledge articles, and proposes a classification and actions that the service
     desk approves before anything is written.
-  homepage: https://github.com/VargaFoundation/choregos-agents
+  homepage: https://github.com/graalsystems/tranibor-agents
   # 0.2.0: `itsm-triager` declares its five components (ADR 0127, S60-04): `model`,
   # `tools.catalogue|extensions|web`, `memories`. An older core refuses the spec fields it does not know, so
   # it keeps 0.1.2; the first core release with them (S60-01) is 0.25.1.

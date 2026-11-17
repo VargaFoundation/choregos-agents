@@ -6,15 +6,15 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: microsoft-365
-  version: 0.1.0
-  publisher: Varga Foundation
+  version: 0.1.1
+  publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
     Read Microsoft 365 as each person, with their delegated permissions only: their calendar events with
     another person, and the mail threads and Teams chats they share with them. No storage, minimised
     results (20 items, 300-character snippets, never a body nor an attachment), refused without the
     person's connected account.
-  homepage: https://github.com/VargaFoundation/choregos-agents
+  homepage: https://github.com/graalsystems/tranibor-agents
   # 0.26.0: the first core that sends a plugin's server the person's token of a `user_consent` connected
   # account, in X-Choregos-User-Token (S63-08, ADR 0135). An older core would call it without one, and
   # every call would be refused.

@@ -20,7 +20,7 @@ import publish  # noqa: E402
 from choregos_core.plugins import opened, plugin_files  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
-REGISTRY = "ghcr.io/vargafoundation/choregos-agents"
+REGISTRY = "ghcr.io/graalsystems/tranibor-agents"
 #: The servicenow plugin these tests publish, at the version its manifest holds.
 MANIFEST = yaml.safe_load((REPO / "plugins" / "servicenow" / "plugin.yaml").read_text())
 VERSION = MANIFEST["metadata"]["version"]
@@ -94,7 +94,7 @@ def _manifest(root: Path, version: str) -> None:
                 "metadata": {
                     "name": "hello",
                     "version": version,
-                    "publisher": "Varga Foundation",
+                    "publisher": "GRAAL.SYSTEMS SAS",
                     "license": "Apache-2.0",
                     "description": "A greeter.",
                     "core": ">=0.21.0,<1.0.0",

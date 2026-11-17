@@ -1,6 +1,6 @@
 # Choregos agents
 
-Agents for [Choregos](https://github.com/VargaFoundation/choregos), the platform of governed agents,
+Agents for [Choregos](https://github.com/graalsystems/tranibor), the platform of governed agents,
 each packaged as a **plugin** the platform installs by itself.
 
 A plugin is one directory with a `plugin.yaml` at its root (`apiVersion: choregos/v1`, `kind: Plugin`).
@@ -42,18 +42,18 @@ ships two (E3 and C1 of the tool-script matrix).
 
 ## Installing
 
-A Choregos deployment reads plugins from **sources**. This repository is the source `varga`:
+A Choregos deployment reads plugins from **sources**. This repository is the source `tranibor`:
 
 ```yaml
 plugins:
   sources:
-    - name: varga
-      index: oci://ghcr.io/vargafoundation/choregos-agents/index
+    - name: tranibor
+      index: oci://ghcr.io/graalsystems/tranibor-agents/index
       trust:
         issuer: https://token.actions.githubusercontent.com
-        identity: https://github.com/VargaFoundation/choregos-agents/.github/workflows/publish.yml@refs/heads/main
+        identity: https://github.com/graalsystems/tranibor-agents/.github/workflows/publish.yml@refs/heads/main
   defaultPlugins:
-    - {source: varga, name: servicenow, version: "^0.1"}
+    - {source: tranibor, name: servicenow, version: "^0.1"}
 ```
 
 Plugins listed in `defaultPlugins` are installed in every organisation at start-up; the others are
@@ -62,7 +62,7 @@ installed from the console (Catalogue → Plugins).
 ## Publishing your own plugins
 
 Nothing here is special to this repository. Any repository that publishes plugins as signed OCI
-artifacts, with an `index.yaml`, is a source a deployment can add next to `varga`. See
+artifacts, with an `index.yaml`, is a source a deployment can add next to `tranibor`. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the layout and the checks.
 
 ## Licence

@@ -94,7 +94,7 @@ def test_compensations_name_declared_operations() -> None:
 
 def test_the_rest_of_the_descriptor() -> None:
     d = descriptor()
-    assert re.fullmatch(r"ghcr\.io/vargafoundation/choregos-agents/servicenow-mcp@sha256:[0-9a-f]{64}", d["image"])
+    assert re.fullmatch(r"ghcr\.io/graalsystems/tranibor-agents/servicenow-mcp@sha256:[0-9a-f]{64}", d["image"])
     assert (d["port"], d["protocol"], d["paths"], d["implements"], d["webhook"]) == (
         8080,
         "mcp-http",
