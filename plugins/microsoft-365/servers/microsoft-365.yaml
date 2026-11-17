@@ -5,7 +5,7 @@
 # call without one: it holds no credential and no identity of its own, and stores nothing.
 name: microsoft-365
 # CI fills the digest when it builds, signs and publishes the image; the zeros are never pullable.
-image: ghcr.io/vargafoundation/choregos-agents/microsoft-365-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
+image: ghcr.io/graalsystems/tranibor-agents/microsoft-365-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
 port: 8080
 protocol: mcp-http
 # MCP at /mcp, behind the platform's bearer token (CHOREGOS_SERVER_TOKEN); the health probe stays open.

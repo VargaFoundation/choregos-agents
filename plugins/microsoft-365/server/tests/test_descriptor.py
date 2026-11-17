@@ -59,7 +59,7 @@ def test_every_served_tool_is_declared_a_read_and_nothing_else(mcp: Mcp) -> None
 
 def test_the_rest_of_the_descriptor() -> None:
     d = descriptor()
-    assert re.fullmatch(r"ghcr\.io/vargafoundation/choregos-agents/microsoft-365-mcp@sha256:[0-9a-f]{64}", d["image"])
+    assert re.fullmatch(r"ghcr\.io/graalsystems/tranibor-agents/microsoft-365-mcp@sha256:[0-9a-f]{64}", d["image"])
     assert (d["name"], d["port"], d["protocol"], d["paths"]) == (
         "microsoft-365",
         8080,

@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # The agents of the core's `default-request` workflow (ADR 0110), the workflow a project without a repository
 # receives: one writes the brief a person approves, the other produces the deliverable it asks for. Their
-# instructions are the core's `brief` and `deliver` playbooks (VargaFoundation/choregos#1091).
+# instructions are the core's `brief` and `deliver` playbooks (graalsystems/tranibor#1091).
 apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: requests
-  version: 1.1.0
-  publisher: Varga Foundation
+  version: 1.1.1
+  publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
     Agents for requests from any trade, with no repository: one turns a request into a brief a person
     approves (need, expected deliverable, acceptance criteria, out of scope, sources); the other produces
     the deliverable the approved brief asks for, citing its sources, and a person accepts it or sends it
     back.
-  homepage: https://github.com/VargaFoundation/choregos-agents
+  homepage: https://github.com/graalsystems/tranibor-agents
   # 1.0.1 admits 0.21.0: a core built from main after that release reports 0.21.0 and already runs
   # `default-request`. On the 0.21.0 release itself, which has neither the workflow nor the `brief` and
   # `deliver` playbooks, the agents install and wait unused: a catalogue role is a label there.

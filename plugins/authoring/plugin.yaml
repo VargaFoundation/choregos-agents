@@ -6,15 +6,15 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: authoring
-  version: 1.1.0
-  publisher: Varga Foundation
+  version: 1.1.1
+  publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
     Agents that author for the organisation: one drafts an agent (instructions, suggested skills,
     knowledge and connectors, a sample, eval cases) from a person's description; the other compiles
     a knowledge base into a principles skill, each principle citing its documents. A person reviews
     both.
-  homepage: https://github.com/VargaFoundation/choregos-agents
+  homepage: https://github.com/graalsystems/tranibor-agents
   # 0.20.6, the latest core release, was tagged before the plugin installer (S43); 0.21.0 is the first
   # release that installs plugins. These agents need only the catalogue entry shape (ADR 0040) and the
   # work-item context the core prepends to their instructions, both stable across 0.x.

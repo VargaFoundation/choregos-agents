@@ -4,7 +4,7 @@ The core ships a built-in agent catalogue (ADR 0040) in
 `packages/core/src/choregos_core/catalogue_d_agents/`. The plugins below carry all of it, unchanged, so
 that the core can install them instead (S43-09). This file is the mapping that migration reads.
 
-**Source**: VargaFoundation/choregos at `3156d12eabb7dc11fd54d821604cb1efb0033b04` (core 0.20.6 + S43):
+**Source**: graalsystems/tranibor at `3156d12eabb7dc11fd54d821604cb1efb0033b04` (core 0.20.6 + S43):
 22 internal agents (`agents/*.yaml`), 6 external MCP clients (`clients/*.yaml`), 25 eval cases
 (`eval_cases/`), 1 skill (`skills/madr-4`).
 

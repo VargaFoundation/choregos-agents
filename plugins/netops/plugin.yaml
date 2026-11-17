@@ -5,14 +5,14 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: netops
-  version: 1.2.0
-  publisher: Varga Foundation
+  version: 1.2.1
+  publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
     Diagnoses network behaviour from flows, network policies, firewall rules and reverse-proxy
     configuration, through the organisation's pfSense, Cilium and nginx connectors, and proposes
     every change as code that a person approves; it never applies one.
-  homepage: https://github.com/VargaFoundation/choregos-agents
+  homepage: https://github.com/graalsystems/tranibor-agents
   # 1.1.0: the agent makes tool scripts its default (`spec.tools`, ADR 0122 §9), a field the core knows
   # from 0.24.1 (S57-15). An older core refuses an agent spec field it does not know, so it must never
   # install this version: it keeps 1.0.0. (1.0.0 needed 0.21.0, the first release that installs plugins.)

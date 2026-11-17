@@ -5,14 +5,14 @@ their delegated permissions only. It is generic: any assistant binds a need to i
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `microsoft-365` 0.1.0, core `>=0.26.0,<1.0.0` (the first core that sends a plugin's server the person's `user_consent` token, ADR 0135) |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `microsoft-365` 0.1.1, core `>=0.26.0,<1.0.0` (the first core that sends a plugin's server the person's `user_consent` token, ADR 0135) |
 | Server | [`servers/microsoft-365.yaml`](servers/microsoft-365.yaml), [`server/`](server) | three reads over Graph, and its `fake` for the eval matrix |
 | Procedure | [`procedures/connector.mcp.microsoft-365.md`](procedures/connector.mcp.microsoft-365.md) | the Entra application, its consent, the connector's `user_consent` settings |
 | Entra check | [`server/entra/`](server/entra), `python -m choregos_microsoft_365.entra` | the reference application of each stage, and the check that an application asks exactly its stage's permissions |
 
 ```sh
 choregos plugin validate plugins/microsoft-365
-choregos plugin pack plugins/microsoft-365 -o microsoft-365-0.1.0.tar.gz   # same bytes every time
+choregos plugin pack plugins/microsoft-365 -o microsoft-365-0.1.1.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.

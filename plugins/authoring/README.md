@@ -7,12 +7,12 @@ The agents that write for the organisation itself, from the core's built-in cata
 | [`agent-drafter`](agents/agent-drafter.yaml) | 2 | Drafts an agent (instructions, suggested skills, knowledge and connectors, a sample, eval cases) from a person's description; a person reviews it. |
 | [`knowledge-distiller`](agents/knowledge-distiller.yaml) | 2 | Compiles a knowledge base into a principles skill, each principle citing the documents it comes from; a person approves it. |
 
-Version 1.1.0, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
+Version 1.1.1, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 
 
-## Declared components (1.1.0)
+## Declared components (1.1.1)
 
 Every agent declares the five components of ADR 0127 (the core's S60-04), so that a version no longer
 inherits any of them from its project. Each agent's catalogue version is one higher than in 1.0.0, and no
@@ -28,5 +28,5 @@ closes its source. The project and the deployment still only tighten what is nam
 
 ```sh
 choregos plugin validate plugins/authoring
-choregos plugin pack plugins/authoring -o authoring-1.1.0.tar.gz   # same bytes every time
+choregos plugin pack plugins/authoring -o authoring-1.1.1.tar.gz   # same bytes every time
 ```
