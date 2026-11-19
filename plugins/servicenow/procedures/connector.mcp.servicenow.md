@@ -114,7 +114,7 @@ In Tranibor, the server's descriptor is the floor: reads are allowed; work notes
 through approval; a customer comment, a resolution and a change request always wait for a person, and an
 organisation can only make that stricter.
 
-## In Tranibor
+## In Choregos
 
 1. Catalogue, **Plugins**, `servicenow`, **Configure**.
 2. `base_url`: `https://<instance>.service-now.com`. `auth`: `oauth` (or `basic`).
