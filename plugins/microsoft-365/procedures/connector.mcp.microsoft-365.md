@@ -73,7 +73,7 @@ fields:
 - The client secret stays with the platform, which redeems each person's code and refreshes their token;
   the server never receives it.
 
-## In Choregos
+## In Tranibor
 
 1. **The client secret (platform administrator).** Put the secret's value in the API's environment as
    `CONNECTOR_MICROSOFT_365_CLIENT_SECRET` (from your secret manager, as for any `env:` reference of the

@@ -12,7 +12,7 @@ their delegated permissions only. It is generic: any assistant binds a need to i
 
 ```sh
 tranibor plugin validate plugins/microsoft-365
-tranibor plugin pack plugins/microsoft-365 -o microsoft-365-0.1.2.tar.gz   # same bytes every time
+tranibor plugin pack plugins/microsoft-365 -o microsoft-365-0.1.3.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.

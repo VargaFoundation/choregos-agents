@@ -9,10 +9,9 @@ permissions:
   contents: read
 
 env:
-  # The core whose validator, packer, eval matrix and publication library every job runs: the main commit
-  # that merged S60 (graalsystems/tranibor#1488), whose schemas accept an agent's `tools.catalogue`,
-  # `extensions` and `web` (ADR 0127); its release is v0.25.1. publish.yml pins the same commit.
-  CHOREGOS_REF: 0a77ba219f811eceadcc4026478c168ff01ab1c9
+  # The core whose validator, packer, eval matrix and publication library every job runs: a main commit of
+  # graalsystems/tranibor, after the rename to Tranibor (ADR 0176). publish.yml pins the same commit.
+  CHOREGOS_REF: 1048737e80364cef1b742a782e66451f37f7d72f
 
 jobs:
   servers:
@@ -55,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           cd core
-          uv sync --frozen --package choregos-cli
+          uv sync --frozen --package tranibor-cli
           out="$RUNNER_TEMP/packs"
           mkdir -p "$out"
           found=0
@@ -64,9 +63,9 @@ jobs:
             found=1
             name=$(basename "$dir")
             echo "::group::$name"
-            uv run --frozen --package choregos-cli choregos plugin validate "$dir"
-            uv run --frozen --package choregos-cli choregos plugin pack "$dir" -o "$out/$name-1.tar.gz"
-            uv run --frozen --package choregos-cli choregos plugin pack "$dir" -o "$out/$name-2.tar.gz"
+            uv run --frozen --package tranibor-cli tranibor plugin validate "$dir"
+            uv run --frozen --package tranibor-cli tranibor plugin pack "$dir" -o "$out/$name-1.tar.gz"
+            uv run --frozen --package tranibor-cli tranibor plugin pack "$dir" -o "$out/$name-2.tar.gz"
             cmp "$out/$name-1.tar.gz" "$out/$name-2.tar.gz" || { echo "::error::$name: pack is not reproducible"; exit 1; }
             echo "::endgroup::"
           done
@@ -148,9 +147,9 @@ jobs:
         run: |
           set -euo pipefail
           cd core
-          uv sync --frozen --package choregos-cli
-          uv run --frozen --package choregos-cli --with pytest pytest -q "$GITHUB_WORKSPACE/agents/scripts/tests"
-          uv run --frozen --package choregos-cli python "$GITHUB_WORKSPACE/agents/scripts/publish.py" \
+          uv sync --frozen --package tranibor-cli
+          uv run --frozen --package tranibor-cli --with pytest pytest -q "$GITHUB_WORKSPACE/agents/scripts/tests"
+          uv run --frozen --package tranibor-cli python "$GITHUB_WORKSPACE/agents/scripts/publish.py" \
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
