@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# The investment-research plugin (ADR 0181, "Decision (2026-11-19)", points 2 and 4; core story S83-07):
+# the CONTENT half of the investment research trade, moved out of the core. It ships the
+# `investment-research` template (its two workflows, its two agents and two skills, template-local) and
+# the procedures of the `marketdata` connector types. The CODE half stays in the core repository: the
+# extension `tranibor-investment-research`, which ships the `marketdata` connector family and is
+# installed in the platform's published API and worker images, and the `investment-research` job image,
+# built by the core's release, which runs `choregos-quant`. The plugin format has no field naming an
+# extension or a job image; the template's job steps name the image (`image: investment-research`) and
+# the operator maps it (README.md).
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: investment-research
+  version: 0.1.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: >-
+    Research campaigns over a universe of listed products (equities, ETFs): jobs snapshot daily bars
+    through the organisation's market data connector, profile the universe and backtest the strategies an
+    agent proposes in a closed grammar; one memo per relevant product quotes only measured numbers, and a
+    person decides. A research note for internal use, never an order. Ships the template and the
+    procedures of the market data connector types.
+  homepage: https://github.com/graalsystems/tranibor-agents
+  # The core release that dev and prod run when the template left the core. The format needs no more:
+  # `choregos plugin validate` also accepts this plugin at ci.yml's CHOREGOS_REF (released as 0.25.1).
+  core: ">=0.27.14,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+  # The organisation connector the template's snapshot job calls, by name, and its capability (as the
+  # template declares it); its connector types come from the extension `tranibor-investment-research`.
+  org_connectors:
+    marketdata: marketdata
+contents:
+  templates: [templates/investment-research]
+  procedures: ["procedures/*.md"]
