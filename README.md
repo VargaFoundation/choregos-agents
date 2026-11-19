@@ -1,6 +1,6 @@
-# Choregos agents
+# Tranibor agents
 
-Agents for [Choregos](https://github.com/graalsystems/tranibor), the platform of governed agents,
+Agents for [Tranibor](https://github.com/graalsystems/tranibor), the platform of governed agents,
 each packaged as a **plugin** the platform installs by itself.
 
 A plugin is one directory with a `plugin.yaml` at its root (`apiVersion: choregos/v1`, `kind: Plugin`).
@@ -15,8 +15,8 @@ It carries what an agent needs to do its job:
 | `procedures/` | step-by-step guides for whoever installs and configures it |
 | `servers/` | when the agent needs code to reach a system: an MCP server image the platform runs and governs |
 
-The format is specified by ADR 0093 and ADR 0094 in the Choregos repository, and checked by
-`choregos plugin validate`.
+The format is specified by ADR 0093 and ADR 0094 in the Tranibor repository, and checked by
+`tranibor plugin validate`.
 
 A plugin may also give the core's eval matrix its own cases: agent cases in the core's format, declared in
 `contents.matrix_cases`, each played by the matrix in its cells against the plugin's server on its fake,
@@ -42,7 +42,7 @@ ships two (E3 and C1 of the tool-script matrix).
 
 ## Installing
 
-A Choregos deployment reads plugins from **sources**. This repository is the source `tranibor`:
+A Tranibor deployment reads plugins from **sources**. This repository is the source `tranibor`:
 
 ```yaml
 plugins:

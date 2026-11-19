@@ -26,7 +26,7 @@ The agents of a governed software delivery, from triage to the production go or 
 
 The skill [`madr-4`](skills/madr-4/SKILL.md) (MADR 4.0.0 decision records, carried by `architect` and `reviewer`) ships with MADR's licence (`MIT OR CC0-1.0`, the MIT text in `LICENSE`) and its `PROVENANCE.json`. The gate rates it high risk (it links to adr.github.io), so installing this plugin waits for a second administrator (ADR 0050).
 
-Version 1.2.1, core `>=0.25.1,<1.0.0`. Up to 1.1.1 the instructions were the core's, byte for byte; 1.2.0 adds the sentences that name the skills and the conventions. The plugin's files
+Version 1.2.2, core `>=0.25.1,<1.0.0`. Up to 1.1.1 the instructions were the core's, byte for byte; 1.2.0 adds the sentences that name the skills and the conventions. The plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 
@@ -94,6 +94,6 @@ here, not a new one. The memory is what the legacy `memory: project` meant (`eff
 lessons go to the project's shared memory. A later version may narrow it.
 
 ```sh
-choregos plugin validate plugins/software-delivery
-choregos plugin pack plugins/software-delivery -o software-delivery-1.2.0.tar.gz   # same bytes every time
+tranibor plugin validate plugins/software-delivery
+tranibor plugin pack plugins/software-delivery -o software-delivery-1.2.0.tar.gz   # same bytes every time
 ```

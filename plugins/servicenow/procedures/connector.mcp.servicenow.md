@@ -20,7 +20,7 @@ fields:
   username: "the integration user (auth=basic only)"
   password: "its password (auth=basic only), typed once"
   webhook_secret: "a random string of at least 32 characters, the same as in the Business Rule"
-  assignment_groups: "the names (or sys_ids) of the groups whose queue Choregos triages"
+  assignment_groups: "the names (or sys_ids) of the groups whose queue Tranibor triages"
 ---
 
 ## Before you start
@@ -29,9 +29,9 @@ fields:
   Developer Program is enough to try the plugin.
 - The `servicenow` plugin installed in your organisation (Catalogue, **Plugins**). Its server runs in the
   platform; there is nothing to host. A plugin that brings a server needs a second person's approval.
-- The assignment groups whose incidents Choregos should triage (for instance `Service Desk`).
+- The assignment groups whose incidents Tranibor should triage (for instance `Service Desk`).
 - A random secret of at least 32 characters for the webhook, kept in your secret store. You type it twice:
-  in Choregos and in a ServiceNow system property.
+  in Tranibor and in a ServiceNow system property.
 - This procedure is written from ServiceNow's documentation and the plugin's fake instance; it has not yet
   been run end to end against a live instance.
 
@@ -47,7 +47,7 @@ fields:
      property if it does not exist).
    - System OAuth, Application Registry, **New**, **Create an OAuth API endpoint for external clients**
      (on newer releases: **New Inbound Integration Experience**, **OAuth - Client credentials grant**).
-     Name it `Choregos`. Set **OAuth Application User** to `choregos.integration`, so every call runs with
+     Name it `Tranibor`. Set **OAuth Application User** to `choregos.integration`, so every call runs with
      the custom role and nothing more. Save, then copy the **Client ID** and **Client Secret**.
    - On an older release, or a PDI without the client credentials grant, use auth `basic` with the
      integration user's password instead.
@@ -55,7 +55,7 @@ fields:
    **Write roles** set to `admin`:
    - `choregos.webhook_url`, type string: `{{plugin_webhook_url:servicenow/servicenow}}`;
    - `choregos.webhook_secret`, type string: the webhook secret.
-5. **The Business Rule.** System Definition, Business Rules, **New**: name `Choregos - notify`, table
+5. **The Business Rule.** System Definition, Business Rules, **New**: name `Tranibor - notify`, table
    **Incident [incident]**, check **Advanced**. When: **after**, on **Insert** and **Update**. Filter
    conditions: **Assignment group** *is one of* the groups you chose. Script:
 
@@ -64,7 +64,7 @@ fields:
        var url = gs.getProperty('choregos.webhook_url');
        var secret = gs.getProperty('choregos.webhook_secret');
        if (!url || !secret) {
-           gs.warn('Choregos: choregos.webhook_url or choregos.webhook_secret is not set');
+           gs.warn('Tranibor: choregos.webhook_url or choregos.webhook_secret is not set');
            return;
        }
        var operation = current.operation();
@@ -89,10 +89,10 @@ fields:
    })(current, previous);
    ```
 
-   The payload names the record and nothing else: Choregos re-reads it through the Table API before
+   The payload names the record and nothing else: Tranibor re-reads it through the Table API before
    acting, so nothing of the payload is trusted. The same rule on **Requested Item [sc_req_item]** or
    **Change Request [change_request]** makes those work items too.
-6. Without the Business Rule, Choregos polls the assignment groups' queue instead, with a delay.
+6. Without the Business Rule, Tranibor polls the assignment groups' queue instead, with a delay.
 
 ## Permissions
 
@@ -110,11 +110,11 @@ The custom role `choregos_integration` holds table ACLs, nothing else: no `admin
 - **Create** on `incident` (the tracker can open one) and on `change_request` (`create_change_request`,
   always approved by a person).
 
-In Choregos, the server's descriptor is the floor: reads are allowed; work notes and field updates go
+In Tranibor, the server's descriptor is the floor: reads are allowed; work notes and field updates go
 through approval; a customer comment, a resolution and a change request always wait for a person, and an
 organisation can only make that stricter.
 
-## In Choregos
+## In Tranibor
 
 1. Catalogue, **Plugins**, `servicenow`, **Configure**.
 2. `base_url`: `https://<instance>.service-now.com`. `auth`: `oauth` (or `basic`).
@@ -131,7 +131,7 @@ organisation can only make that stricter.
 2. In ServiceNow, create an incident assigned to one of the groups. Within a minute it appears on the
    project's board in **In the queue**, then the triager runs.
 3. System Logs, **Outbound HTTP Requests**: the Business Rule's POST answered `200`.
-4. Approve the triage in Choregos: a work note signed `[choregos:…]` appears on the incident.
+4. Approve the triage in Tranibor: a work note signed `[choregos:…]` appears on the incident.
 
 ## When it fails
 
@@ -140,8 +140,8 @@ organisation can only make that stricter.
 - `403` on a read or a write: the custom role lacks that table or field ACL (see Permissions). The server
   says which table and field.
 - The webhook answers `401`: the `X-Choregos-Secret` sent differs from `webhook_secret`, or a property is
-  empty (the system log shows `Choregos: … is not set`).
+  empty (the system log shows `Tranibor: … is not set`).
 - No outbound request in the log: the Business Rule's filter does not match the incident's assignment
   group, or the rule is inactive.
-- A timeout from Choregos: the egress rule of the plugin's server must allow the instance's host.
+- A timeout from Tranibor: the egress rule of the plugin's server must allow the instance's host.
 - The VIP flag is always false: the role cannot read `sys_user.vip`.

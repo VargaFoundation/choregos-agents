@@ -1,6 +1,6 @@
 # MCP clients plugin
 
-The external agents of the core's built-in catalogue (ADR 0040, ADR 0033), unchanged: the assistants and editors that act through Choregos's MCP door with their person's rights, never more. They have no instructions and no evals.
+The external agents of the core's built-in catalogue (ADR 0040, ADR 0033), unchanged: the assistants and editors that act through Tranibor's MCP door with their person's rights, never more. They have no instructions and no evals.
 
 | Agent | Catalogue version | What it does |
 |:--|--:|:--|
@@ -11,11 +11,11 @@ The external agents of the core's built-in catalogue (ADR 0040, ADR 0033), uncha
 | [`copilot-vscode`](agents/copilot-vscode.yaml) | 1 | GitHub Copilot in VS Code acting through the MCP door, with its person's rights intersected with this agent's. |
 | [`cursor`](agents/cursor.yaml) | 1 | Cursor acting through the MCP door, with its person's rights intersected with this agent's. |
 
-Version 1.0.1, core `>=0.21.0,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
+Version 1.0.2, core `>=0.21.0,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 
 ```sh
-choregos plugin validate plugins/mcp-clients
-choregos plugin pack plugins/mcp-clients -o mcp-clients-1.0.1.tar.gz   # same bytes every time
+tranibor plugin validate plugins/mcp-clients
+tranibor plugin pack plugins/mcp-clients -o mcp-clients-1.0.2.tar.gz   # same bytes every time
 ```

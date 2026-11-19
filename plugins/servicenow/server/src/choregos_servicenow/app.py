@@ -289,7 +289,7 @@ def build_server(runtime: Runtime) -> MCPServer:
 
     @server.tool()
     async def tracker_upsert_status(key: str, markdown: str, marker: str) -> dict[str, Any]:
-        """Reflect Choregos's status as a work note; adds one only when the status text changed."""
+        """Reflect Tranibor's status as a work note; adds one only when the status text changed."""
         return await _run("tracker_upsert_status", tracker.upsert_status(key, markdown, marker))
 
     @server.tool()

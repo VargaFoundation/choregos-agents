@@ -5,11 +5,11 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: mcp-clients
-  version: 1.0.1
+  version: 1.0.2
   publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
-    Registry entries for the assistants and editors that reach Choregos through its MCP door —
+    Registry entries for the assistants and editors that reach Tranibor through its MCP door —
     ChatGPT, Claude (claude.ai, Claude Code, Claude Desktop), GitHub Copilot in VS Code and Cursor
     — each acting with its person's rights, never more, and never deciding.
   homepage: https://github.com/graalsystems/tranibor-agents
