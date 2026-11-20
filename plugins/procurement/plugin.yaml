@@ -31,3 +31,9 @@ contents:
   evals: [evals/offer-reader.yaml, evals/sourcing-analyst.yaml, evals/supplier-file-checker.yaml, evals/request-qualifier.yaml, evals/renewal-analyst.yaml]
   procedures: ["procedures/*.md"]
   servers: [servers/purchasing.yaml]
+  # Cases of the core's eval matrix (its agent-case format), named `plugin:procurement/<file stem>`: the matrix
+  # plays them against the server's fake; the installer keeps them and never plays them.
+  matrix_cases:
+    - evals/matrix/request-agreement-serves-need.yaml
+    - evals/matrix/request-no-agreement-serves-need.yaml
+    - evals/matrix/renewal-memo-reads-the-contract.yaml
