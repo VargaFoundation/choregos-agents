@@ -11,7 +11,10 @@ permissions:
 env:
   # The core whose validator, packer, eval matrix and publication library every job runs: a main commit of
   # graalsystems/tranibor, after the rename to Tranibor (ADR 0176). publish.yml pins the same commit.
-  CHOREGOS_REF: 1048737e80364cef1b742a782e66451f37f7d72f
+  # TEMPORARY, integration branch of the procurement plugin only (core PLAN-2026-11-20-procurement §4):
+  # a commit of the core's branch that carries metadata.attachments and the reserved input (S84-03 to
+  # S84-05). Story PA-04 moves this and publish.yml together to the release that ships them.
+  CHOREGOS_REF: 6b35f70e6d59755be738d200a818487246225aad
 
 jobs:
   servers:
