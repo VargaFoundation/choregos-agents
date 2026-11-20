@@ -6,7 +6,7 @@ apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: microsoft-365
-  version: 0.1.2
+  version: 0.1.3
   publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-

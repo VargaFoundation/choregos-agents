@@ -7,7 +7,7 @@ person decides on each product and on the campaign. A research note for internal
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `investment-research` 0.1.0, core `>=0.27.14,<1.0.0` |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `investment-research` 0.1.1, core `>=0.27.14,<1.0.0` |
 | Template | [`templates/investment-research`](templates/investment-research/README.md) | 0.2.0: the `campaign` and `product-memo` workflows, the agents `quant-strategist` and `quant-analyst`, the skills `strategy-grammar` and `reading-metrics`, its eval cases |
 | Procedures | [`procedures/`](procedures) | the `marketdata` connector types: `stooq`, `yahoo`, `alphavantage`, `tiingo`, `composite` |
 
@@ -20,8 +20,7 @@ research trade out of the core into a unit of its own. It has two halves:
   `investment-research` from the source `tranibor`. The template was copied from the core unchanged,
   except that its three job steps name their image (`image: investment-research`) and its version is
   0.2.0. Its agents and skills stay template-local (`defaults.agents`, `defaults.skills`): the core
-  resolves them against the template's folder. The procedures' heading `## In Choregos` is the one the
-  validator at CI's pinned core requires; newer cores accept it too.
+  resolves them against the template's folder.
 - **The code, in the core repository.** The extension `tranibor-investment-research`, which ships the
   `marketdata` connector family and is installed in the platform's published API and worker images; and
   the `investment-research` job image, `ghcr.io/graalsystems/tranibor-investment-research:<core version>`,
@@ -47,6 +46,6 @@ marketdata}`), which the installer does not enforce.
 ## Checks
 
 ```sh
-choregos plugin validate plugins/investment-research
-choregos plugin pack plugins/investment-research -o investment-research-0.1.0.tar.gz   # same bytes every time
+tranibor plugin validate plugins/investment-research
+tranibor plugin pack plugins/investment-research -o investment-research-0.1.1.tar.gz   # same bytes every time
 ```

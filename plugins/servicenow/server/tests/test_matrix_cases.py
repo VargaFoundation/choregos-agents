@@ -6,7 +6,7 @@ The matrix names a case `plugin:servicenow/<file stem>` and finds it in the offl
 (`CHOREGOS_PLUGINS_OFFLINE`, here this repository's `plugins/`): what `plugin.yaml` declares is what it
 plays. The case's connector `plugin:servicenow/servicenow` is this server, which the core reaches as the
 broker does, over MCP with the platform's bearer token, on the fake registered for it in the process
-(`choregos_adapters.fakes.plugin_servers.use_fake_plugin_server`). Registered here: the server's own app
+(`tranibor_adapters.fakes.plugin_servers.use_fake_plugin_server`). Registered here: the server's own app
 (`build_app`) started as the platform starts its eval instance, with the variables of its `fake`
 declaration (`servers/servicenow.yaml`) and the platform's token, nothing of the configuration, behind an
 `httpx.ASGITransport`.
@@ -14,8 +14,8 @@ declaration (`servers/servicenow.yaml`) and the platform's token, nothing of the
 The rest is the core's: the server's declaration governs its tools (`EvalApi.ready`: the declared
 operations only, their access, `human_approval` never lowered, `action_key` filled by the platform),
 `eval_doors.play` plays the case through its cell's door (the `mcp` cell's evidence through the run's MCP
-server; the `scripts` cell's script with `python3 -S`, the generated `choregos_tools` and the real tool
-bridge), and `choregos_playbooks.evals.agents.judge` gives the verdict, the model requests being the
+server; the `scripts` cell's script with `python3 -S`, the generated `tranibor_tools` and the real tool
+bridge), and `tranibor_playbooks.evals.agents.judge` gives the verdict, the model requests being the
 case's `scripted_usage` as the scripted matrix bills them.
 
 It needs the core's workspace (`uv sync --frozen` in a core checkout, v0.23.2 or later) and this server's
@@ -39,12 +39,12 @@ from choregos_servicenow.config import Settings
 from choregos_servicenow.fake import FakeServiceNow, sys_id_of
 
 eval_doors = pytest.importorskip(
-    "choregos_orchestrator.activities.eval_doors", reason="the core's door player: run in the core's workspace"
+    "tranibor_orchestrator.activities.eval_doors", reason="the core's door player: run in the core's workspace"
 )
-evals = pytest.importorskip("choregos_orchestrator.activities.evals", reason="the core's eval matrix")
-agents = pytest.importorskip("choregos_playbooks.evals.agents", reason="the core's case judge")
-offline = pytest.importorskip("choregos_core.agent_catalogue", reason="the core's offline plugins")
-plugin_servers = pytest.importorskip("choregos_adapters.fakes.plugin_servers", reason="the core's plugin fakes")
+evals = pytest.importorskip("tranibor_orchestrator.activities.evals", reason="the core's eval matrix")
+agents = pytest.importorskip("tranibor_playbooks.evals.agents", reason="the core's case judge")
+offline = pytest.importorskip("tranibor_core.agent_catalogue", reason="the core's offline plugins")
+plugin_servers = pytest.importorskip("tranibor_adapters.fakes.plugin_servers", reason="the core's plugin fakes")
 
 PLUGIN = Path(__file__).resolve().parents[2]
 PLUGINS = PLUGIN.parent

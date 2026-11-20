@@ -43,8 +43,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from choregos_core.plugins import Plugin, PluginError, load_directory, opened, pack, plugin_files
-from choregos_core.plugins.sources import INDEX_MEDIA_TYPE, PLUGIN_MEDIA_TYPE, SourceError, parse_index
+from tranibor_core.plugins import Plugin, PluginError, load_directory, opened, pack, plugin_files
+from tranibor_core.plugins.sources import INDEX_MEDIA_TYPE, PLUGIN_MEDIA_TYPE, SourceError, parse_index
 
 PLACEHOLDER = "sha256:" + "0" * 64
 OFFLINE_DIGEST = "sha256:" + "1" * 64

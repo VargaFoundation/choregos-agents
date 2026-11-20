@@ -17,7 +17,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import publish  # noqa: E402
-from choregos_core.plugins import opened, plugin_files  # noqa: E402
+from tranibor_core.plugins import opened, plugin_files  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 REGISTRY = "ghcr.io/graalsystems/tranibor-agents"
