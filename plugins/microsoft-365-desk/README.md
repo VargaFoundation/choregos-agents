@@ -31,18 +31,23 @@ tranibor plugin pack plugins/microsoft-365-desk -o microsoft-365-desk-0.1.0.tar.
 | Tool | Access | What it does |
 |:--|:--|:--|
 | `tracker_fetch_item` | read | a request by key: subject, plain-text body (≤ 8000 characters), requester, link, state. Mail: `mail:<immutable id>`; Teams: `teams:<conversationId>;<activityId>` |
-| `tracker_list_candidates` | read | the Inbox's messages no one took (no `Choregos:` category), newest first. Teams: none, events only |
-| `tracker_parse_event` | read | a Bot Connector delivery: its JWT verified, a bot mention in a configured channel becomes `tracker.item.created` |
+| `tracker_list_candidates` | read | the Inbox's messages no one took (no `Choregos:` category), newest first, without automatic messages (auto-replies, out-of-office, delivery reports) nor follow-ups of a thread already taken. Teams: none, events only |
+| `tracker_parse_event` | read | a Bot Connector delivery: its JWT verified, a message that mentions the bot in a configured channel becomes `tracker.item.created`; any other message of the channel gives nothing |
 | `tracker_create_item` | write | refused: requests come from the mailbox and the channels |
-| `tracker_set_state` | write | mail: the category `Choregos: <state>`; Teams: nothing |
+| `tracker_set_state` | write | mail: the category `Choregos: <state>` (the status, else the state the label names); Teams: nothing |
 | `tracker_upsert_status` | write | mail: Tranibor's status in an extended property of the message, never seen by the requester; Teams: nothing |
 | `tracker_close` | write | mail: `Choregos: Done`; nothing sent; Teams: nothing |
 | `tracker_comment` | write, `platform_arguments: [action_key]` | nothing: a successful no-op (below) |
-| `reply` | write, `platform_arguments: [action_key, work_item_key]` | the agent's answer to the requester, plain text ≤ 4000 characters, only in its own work item's thread. No `human_approval` floor: a write waits for approval by default, and the organisation's policy decides |
+| `reply` | write, `platform_arguments: [action_key, work_item_key]` | the agent's answer to the requester (a mail to the sender only, or a Teams reply in the thread), plain text ≤ 4000 characters, only in the thread of the action's own work item or of its fan-out parent; refused without a work item. No `human_approval` floor: a write waits for approval by default, and the organisation's policy decides |
 
-A key that is not this desk's (a fan-out child's `DESK-1.1`, another tracker's) is refused by a read and
-by `reply`, and is a successful no-op for every write the platform mirrors, so a child's state never
-fails on the parent's tracker.
+A key that is not this desk's (a fan-out child's `mail:<id>.<n>`, another tracker's) is refused by a read
+and by `reply`, and is a successful no-op for every write the platform mirrors, so a child's state never
+fails on the parent's tracker. A child's action may still `reply`: its `work_item_key` (`<key>.<n>`) names
+its parent's thread.
+
+**Only messages the platform took are categorised.** The core mirrors every state with a label
+(`choregos:<state>` when the workflow maps none) and a status when it maps one; `tracker_set_state`
+writes the category from either, so a taken message leaves the candidates, and an untaken one stays.
 
 **`tracker_comment` writes nothing.** The core's adapter calls it for the platform's own comments on
 the tracker (a human request's question with a console link, the answer to a `/choregos` command…).
@@ -61,15 +66,24 @@ thread.
   (Teams is not known to keep client ids: a last resort). Residual window: a new process (a restart, a
   second replica) replaying the action before Graph shows the first reply sends it twice — a test says so
   (`test_reply.py::test_the_residual_window_a_restart_while_graph_lags`).
-- **State writes** are idempotent PATCHes (`changed`/`written`/`closed: false` when nothing changes).
+- **State writes** are idempotent PATCHes (`changed`/`written`/`closed: false` when nothing changes); with
+  nothing to write they call nobody, and on a message that is gone they are a successful no-op.
+- **A mail reply's draft is born marked**: one `createReply` carries the recipient (the sender, never the
+  Reply-To, no Cc nor Bcc), the body and the action's property.
 
 ## Choices
 
 - **Keys.** The profile bounds a key to 128 characters. Mail keys use Graph **immutable** ids (every call
   sends `Prefer: IdType="ImmutableId"`; ~70 characters, unchanged when a message moves); an id longer than
-  123 characters is never made into a key, and `tracker_list_candidates` says how many it skipped. A Teams
-  key holds the channel, the thread's root and the message (~90 characters): enough to read it and to reply
-  in its thread, with no state of the server's own.
+  119 characters is never made into a key, so that a fan-out child's `mail:<id>.<n>` (n up to 99) fits too,
+  and `tracker_list_candidates` says how many it skipped. A Teams key holds the channel, the thread's root
+  and the message (~90 characters, at most 125): enough to read it and to reply in its thread, with no
+  state of the server's own.
+- **Teams deliveries.** `channelData.team.id` is the team's thread id (`19:…@thread.tacv2`), not its group
+  id: the configured channel (also the conversation's) and the tenant decide, and `team.aadGroupId`, when
+  sent, must be the configured `team_id`. Every channel message is delivered (resource-specific consent):
+  only one that mentions the bot is a request. The Bot Framework's keys are read one at a time, at most
+  every 5 minutes for an unknown key id, 30 seconds after a failed read.
 - **The Bot Connector's service URL** is not in the key (it would not fit). The server keeps the service
   URL of each channel's last verified activity in memory, and uses `service_url` (default
   `https://smba.trafficmanager.net/teams/`) when it has none (after a restart). A service URL outside

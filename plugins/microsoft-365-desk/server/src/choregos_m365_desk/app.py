@@ -193,7 +193,8 @@ def build_server(runtime: Runtime) -> MCPServer:
 
     @server.tool()
     async def tracker_comment(key: str, markdown: str, action_key: str | None = None) -> dict[str, Any]:
-        """Answer the requester in the original thread (the same as `reply`). Idempotent."""
+        """Writes nothing: a successful no-op. The platform's own comments (a question to a person with a
+        console link, a command's answer) are not the requester's to read; `reply` is how an agent answers."""
         return await _run("tracker_comment", desk.comment(key, markdown, action_key))
 
     @server.tool()
@@ -212,9 +213,9 @@ def build_server(runtime: Runtime) -> MCPServer:
     async def reply(
         key: str, text: str, action_key: str | None = None, work_item_key: str | None = None
     ) -> dict[str, Any]:
-        """Answer the requester in the original thread: a mail reply, or a reply in the Teams thread. Plain
-        text, at most 4000 characters, sent once per governed action. Only in the action's own work item's
-        thread."""
+        """Answer the requester in the original thread: a mail reply to the sender only, or a reply in the
+        Teams thread. Plain text, at most 4000 characters, sent once per governed action. Only in the thread
+        of the action's own work item or of its fan-out parent; refused without a work item."""
         return await _run("reply", desk.reply(key, text, action_key, work_item_key))
 
     return server

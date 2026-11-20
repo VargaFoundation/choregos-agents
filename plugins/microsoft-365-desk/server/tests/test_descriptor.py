@@ -124,3 +124,15 @@ def test_the_plugin_requires_the_first_core_that_forwards_authorization() -> Non
     manifest = yaml.safe_load((PLUGIN / "plugin.yaml").read_text())
     assert manifest["metadata"]["core"] == ">=0.28.0,<1.0.0"
     assert manifest["contents"]["servers"] == ["servers/desk.yaml"]
+
+
+def test_tracker_comment_says_it_writes_nothing() -> None:
+    """The platform's comments are for its own readers: neither the declaration nor the tool may promise a
+    reply to the requester."""
+    description = operations()["tracker_comment"]["description"].lower()
+    assert "reply" not in description and "requester" in description and "nothing" in description
+    from choregos_m365_desk import app
+
+    source = Path(app.__file__).read_text()
+    docstring = source.split("async def tracker_comment", 1)[1].split('"""')[1].lower()
+    assert "reply" not in docstring.replace("`reply`", "") and "nothing" in docstring

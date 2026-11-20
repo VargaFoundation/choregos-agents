@@ -92,6 +92,12 @@ class Profile:
         problems = [e.message for e in self.validator.iter_errors({"tool": tool, "input": arguments, "output": answer})]
         assert not problems, (tool, problems)
 
+    def output_problems(self, tool: str, answer: dict[str, Any]) -> list[str]:
+        """The answer alone against `$defs/<tool>_output` (the adapter's own check)."""
+        schema = self.validator.schema
+        validator = Draft202012Validator({"$defs": schema["$defs"], "$ref": f"#/$defs/{tool}_output"})
+        return [e.message for e in validator.iter_errors(answer)]
+
 
 SKIP_WITHOUT_CORE = (
     f"the core's tracker profile is not at {PROFILE_SCHEMA}: set TRANIBOR_CORE to a checkout of "

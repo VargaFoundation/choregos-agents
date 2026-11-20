@@ -91,7 +91,7 @@ egress:
 # The governance floor. `access: read` is allowed by default; a write goes through approval unless an
 # administrator decides otherwise. `platform_arguments` are filled by the platform, never the agent:
 # `action_key` (an idempotency key stable for one governed action) and `work_item_key` (the work item the
-# action belongs to: `reply` answers in that work item's thread only).
+# action belongs to: `reply` answers in that work item's thread, or its fan-out parent's, only).
 operations:
   # The tracker profile (server/TRACKER_PROFILE.md), called by the core's tracker/plugin adapter.
   - {name: tracker_fetch_item, access: read}
@@ -105,7 +105,9 @@ operations:
     description: "Mail, the category `Choregos: <state>`; Teams, nothing."
   - name: tracker_comment
     access: write
-    description: A reply to the requester in the original thread, idempotent through the platform's action_key.
+    description: >-
+      Writes nothing: a successful no-op, so the platform's own comments (questions to a person, console
+      links, command answers) never reach the requester.
     platform_arguments: [action_key]
   - name: tracker_upsert_status
     access: write
@@ -119,8 +121,9 @@ operations:
   - name: reply
     access: write
     description: >-
-      Answer the requester in the original thread (a mail reply, or a reply in the Teams thread), plain
-      text, once per governed action, in the action's own work item's thread only.
+      Answer the requester in the original thread (a mail reply to the sender only, or a reply in the Teams
+      thread), plain text, once per governed action; only in the thread of the action's own work item or of
+      its fan-out parent (work_item_key is the key or key.<n>…), refused without a work item.
     platform_arguments: [action_key, work_item_key]
 
 implements: [tracker]

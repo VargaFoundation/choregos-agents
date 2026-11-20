@@ -8,7 +8,8 @@ neither does this server. A token is accepted when:
 
 - it is RS256, signed by a key of the Bot Framework's OpenID metadata
   (`https://login.botframework.com/v1/.well-known/openidconfiguration` → `jwks_uri`, on
-  `login.botframework.com` only), kept 24 hours and re-read at most every 5 minutes for an unknown `kid`;
+  `login.botframework.com` only), kept 24 hours and re-read at most every 5 minutes for an unknown `kid`
+  (30 seconds after a failed read), one read at a time whatever the number of deliveries waiting;
 - that key is endorsed for the activity's channel (`endorsements` holds `msteams`) when it lists any;
 - its issuer is `https://api.botframework.com`, its audience the bot's Microsoft App ID, and it has not
   expired (5 minutes of clock skew allowed);
@@ -20,6 +21,7 @@ is "not verified": the delivery is answered `{verified: false}` and nothing of i
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -35,6 +37,9 @@ KEYS_TTL_S = 24 * 3600
 #: An unknown `kid` re-reads the keys (a rotation), at most this often: a forged `kid` cannot make the
 #: server hammer the metadata endpoint.
 KEYS_REFRESH_MIN_S = 300
+#: After a read that failed, the next one waits this long: keys that cannot be read are not asked for at
+#: every delivery, and come back sooner than after a good read.
+KEYS_RETRY_AFTER_FAILURE_S = 30
 LEEWAY_S = 300
 
 log = structlog.get_logger("choregos_m365_desk.botauth")
@@ -46,7 +51,11 @@ class BotAuth:
         self.bot_app_id = bot_app_id
         self.clock = clock
         self._keys: dict[str, dict[str, Any]] = {}
+        #: When the keys were last read, and when a read was last attempted (and whether it failed).
         self._read_at: float | None = None
+        self._attempted_at: float | None = None
+        self._failed = False
+        self._lock = asyncio.Lock()
 
     async def verify(self, authorization: str | None, activity: Mapping[str, Any]) -> dict[str, Any] | None:
         """The token's claims when the delivery is the Bot Connector's for this bot, else `None`."""
@@ -87,18 +96,24 @@ class BotAuth:
         return claims
 
     async def _key(self, kid: str) -> dict[str, Any] | None:
-        now = self.clock()
-        stale = self._read_at is None or now - self._read_at > KEYS_TTL_S
-        unknown_and_may_refresh = kid not in self._keys and (
-            self._read_at is None or now - self._read_at > KEYS_REFRESH_MIN_S
-        )
-        if stale or unknown_and_may_refresh:
-            try:
-                self._keys = await self._read_keys()
-                self._read_at = now
-            except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
-                log.warning("bot_keys_unavailable", reason=type(error).__name__)
-        return self._keys.get(kid)
+        async with self._lock:  # deliveries waiting here see the read the first one made
+            now = self.clock()
+            stale = self._read_at is None or now - self._read_at > KEYS_TTL_S
+            if (stale or kid not in self._keys) and self._may_read(now):
+                self._attempted_at = now
+                try:
+                    self._keys = await self._read_keys()
+                    self._read_at, self._failed = now, False
+                except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
+                    self._failed = True
+                    log.warning("bot_keys_unavailable", reason=type(error).__name__)
+            return self._keys.get(kid)
+
+    def _may_read(self, now: float) -> bool:
+        if self._attempted_at is None:
+            return True
+        wait = KEYS_RETRY_AFTER_FAILURE_S if self._failed else KEYS_REFRESH_MIN_S
+        return now - self._attempted_at > wait
 
     async def _read_keys(self) -> dict[str, dict[str, Any]]:
         metadata = await self.http.get(BOT_OPENID_URL)

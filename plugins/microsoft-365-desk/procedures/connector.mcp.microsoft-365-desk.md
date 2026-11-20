@@ -173,3 +173,8 @@ Entra — an Entra grant is tenant-wide and adds to the scoped roles, so every m
   type (single-tenant: your tenant id; multi-tenant: `botframework.com`).
 - A mail skipped by `tracker_list_candidates` (its `reason` says how many): its id is longer than a key
   allows. Answer it by hand.
+- A mail that never becomes a work item: an automatic one (an `Auto-Submitted` header, an out-of-office
+  reply, a delivery report), or a follow-up in a conversation the desk already took (a message of it is
+  categorised `Choregos: …`). Remove the category from the taken message to let the thread be taken again.
+- A `reply` refused with `work_item_key`: the action has no work item, or belongs to another request than
+  the one it answers; a fan-out child answers its parent's requester only.

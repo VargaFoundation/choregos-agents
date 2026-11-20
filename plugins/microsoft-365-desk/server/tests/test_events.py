@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from choregos_m365_desk.botauth import KEYS_REFRESH_MIN_S, BotAuth
+from choregos_m365_desk.botauth import KEYS_REFRESH_MIN_S, KEYS_RETRY_AFTER_FAILURE_S, BotAuth
 from choregos_m365_desk.config import FAKE_CLIENT_ID
 from choregos_m365_desk.fake import CONVERSATION_ID, REPLY_ID, ROOT_ID, FakeBotIssuer, FakeMicrosoft, activity
 
@@ -120,7 +120,8 @@ async def test_a_malformed_body_is_not_verified(mcp: Mcp, fake: FakeMicrosoft, b
         pytest.param(activity(kind="conversationUpdate"), id="not a message"),
         pytest.param(activity(kind="messageReaction"), id="a reaction"),
         pytest.param(activity(channel_id="19:otherchannel@thread.tacv2"), id="another channel"),
-        pytest.param(activity(team_id="33333333-3333-4333-8333-333333333333"), id="another team"),
+        pytest.param(activity(aad_group_id="33333333-3333-4333-8333-333333333333"), id="another team's group id"),
+        pytest.param(activity("My printer is broken.", mention=False), id="no mention of the bot"),
         pytest.param(activity(tenant_id="44444444-4444-4444-8444-444444444444"), id="another tenant"),
         pytest.param(activity("<at>Desk</at>   "), id="a mention and nothing else"),
         pytest.param(activity(activity_id="not-digits"), id="an activity id that is not Teams'"),
@@ -133,6 +134,31 @@ async def test_a_verified_delivery_that_is_not_a_request_gives_no_event(
         "verified": True,
         "events": [],
     }
+
+
+async def test_a_real_teams_activity_names_its_team_by_thread_id_and_maybe_by_group_id(
+    mcp: Mcp, fake: FakeMicrosoft
+) -> None:
+    """`channelData.team.id` is the team's thread id (`19:…@thread.tacv2`), never its group id; the group id
+    comes as `team.aadGroupId`, sometimes. The configured channel (checked against the conversation) and
+    the tenant decide; a group id, when sent, must be the configured team's."""
+    with_group = activity()
+    assert with_group["channelData"]["team"]["id"].startswith("19:")
+    for body in (with_group, activity(aad_group_id=None)):
+        answer = await mcp.call("tracker_parse_event", **delivery(fake.issuer.mint(), body))
+        assert [e["item_key"] for e in answer["events"]] == [ROOT]
+
+
+async def test_a_mention_of_someone_else_is_not_a_request(mcp: Mcp, fake: FakeMicrosoft) -> None:
+    """With the channel's RSC every message is delivered: only one that mentions THIS bot is a request."""
+    body = activity("<at>Alex</at> can you look?", mention=False)
+    body["entities"].append(
+        {"type": "mention", "text": "<at>Alex</at>", "mentioned": {"id": "29:alex", "name": "Alex"}}
+    )
+    assert (await mcp.call("tracker_parse_event", **delivery(fake.issuer.mint(), body)))["events"] == []
+    other_bot = activity(bot_id="99999999-9999-4999-8999-999999999999")
+    other_bot["recipient"]["id"] = f"28:{FAKE_CLIENT_ID}"
+    assert (await mcp.call("tracker_parse_event", **delivery(fake.issuer.mint(), other_bot)))["events"] == []
 
 
 async def test_a_conversation_of_another_channel_than_its_channel_data_gives_no_event(
@@ -166,6 +192,49 @@ async def test_an_unknown_kid_re_reads_the_keys_after_five_minutes() -> None:
     assert await auth.verify(f"Bearer {rotated.mint()}", activity()) is None  # within 5 minutes: not re-read
     now[0] += KEYS_REFRESH_MIN_S + 1
     assert await auth.verify(f"Bearer {rotated.mint()}", activity()) is not None
+
+
+async def test_keys_that_cannot_be_read_are_not_re_read_at_every_delivery() -> None:
+    import httpx
+
+    fake = FakeMicrosoft()
+    fake.bot_keys_down = True
+    now = [1000.0]
+    auth = BotAuth(httpx.AsyncClient(transport=httpx.MockTransport(fake)), FAKE_CLIENT_ID, clock=lambda: now[0])
+
+    def reads() -> int:
+        return len([r for r in fake.requests if r.url.path.endswith("openidconfiguration")])
+
+    for _ in range(5):
+        assert await auth.verify(f"Bearer {fake.issuer.mint()}", activity()) is None
+    assert reads() == 1
+    fake.bot_keys_down = False
+    now[0] += KEYS_RETRY_AFTER_FAILURE_S - 1
+    assert await auth.verify(f"Bearer {fake.issuer.mint()}", activity()) is None
+    assert reads() == 1
+    now[0] += 2  # a shorter back-off after a failure than after a read
+    assert await auth.verify(f"Bearer {fake.issuer.mint()}", activity()) is not None
+    assert reads() == 2
+
+
+async def test_concurrent_deliveries_with_forged_kids_read_the_keys_once() -> None:
+    import asyncio
+
+    import httpx
+
+    fake = FakeMicrosoft()
+    inner = httpx.MockTransport(fake)
+
+    class Slow(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+            await asyncio.sleep(0.01)
+            return await inner.handle_async_request(request)
+
+    auth = BotAuth(httpx.AsyncClient(transport=Slow()), FAKE_CLIENT_ID)
+    forged = [FakeBotIssuer(kid=f"forged-{n}").mint() for n in range(5)]
+    results = await asyncio.gather(*(auth.verify(f"Bearer {token}", activity()) for token in forged))
+    assert results == [None] * 5
+    assert len([r for r in fake.requests if r.url.path.endswith("openidconfiguration")]) == 1
 
 
 async def test_the_platforms_door_events_answers_as_the_tool() -> None:

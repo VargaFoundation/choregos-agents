@@ -159,7 +159,7 @@ async def test_set_state_is_a_category_kept_beside_the_others(tracker: Tracker, 
     again = await tracker("tracker_set_state", key=TAKEN, status="Waiting for review", label=None, remove_labels=[])
     assert again["changed"] is False
     nothing = await tracker("tracker_set_state", key=PLAIN, status=None, label=None, remove_labels=[])
-    assert (nothing["changed"], nothing["state"]) == (False, "New")
+    assert (nothing["changed"], nothing["state"]) == (False, None)  # nothing to write: nothing read either
     assert (await tracker("tracker_list_candidates", limit=50))["keys"] == [HTML, PLAIN]
     await tracker("tracker_set_state", key=PLAIN, status="In progress", label=None, remove_labels=[])
     assert (await tracker("tracker_list_candidates", limit=50))["keys"] == [HTML]
@@ -235,3 +235,98 @@ async def test_mirrored_writes_on_a_channel_no_longer_configured_are_no_ops(
         assert (await tracker("tracker_close", key=key, close_notes=None, close_code=None))["closed"] is False
         assert (await tracker("tracker_comment", key=key, markdown="m", action_key="platform:k"))["written"] is False
     assert fake.requests == []
+
+
+# ─────────────────────────── what the core mirrors, and only that ───────────────────────────
+
+
+async def test_a_state_mirrored_by_its_label_alone_is_a_category(tracker: Tracker, fake: FakeMicrosoft) -> None:
+    """The core's `mirror_state` always sends a label (`choregos:<state>` when the workflow names none) and a
+    status only when the workflow maps one: either way the message the platform took is categorised."""
+    by_label = await tracker("tracker_set_state", key=PLAIN, status=None, label="choregos:triage", remove_labels=[])
+    assert by_label == {"key": PLAIN, "changed": True, "state": "triage", "ignored": []}
+    assert fake.messages[MAIL_PLAIN].categories == ["Choregos: triage"]
+    named = await tracker("tracker_set_state", key=PLAIN, status=None, label="Waiting for review", remove_labels=[])
+    assert (named["state"], fake.messages[MAIL_PLAIN].categories) == (
+        "Waiting for review",
+        ["Choregos: Waiting for review"],
+    )
+    assert (await tracker("tracker_list_candidates", limit=50))["keys"] == [HTML]
+
+
+async def test_a_mirrored_write_with_nothing_to_write_calls_nobody(tracker: Tracker, fake: FakeMicrosoft) -> None:
+    state = await tracker("tracker_set_state", key=PLAIN, status=None, label=None, remove_labels=[])
+    assert (state["changed"], await tracker("tracker_upsert_status", key=PLAIN, markdown="  ", marker="s")) == (
+        False,
+        {"key": PLAIN, "written": False},
+    )
+    assert fake.requests == []
+
+
+async def test_a_mirrored_write_on_a_message_that_is_gone_is_a_no_op(tracker: Tracker, fake: FakeMicrosoft) -> None:
+    gone = "mail:AAkAgone"
+    assert (await tracker("tracker_set_state", key=gone, status="x", label=None, remove_labels=[]))["changed"] is False
+    assert (await tracker("tracker_upsert_status", key=gone, markdown="s", marker="status"))["written"] is False
+    assert (await tracker("tracker_close", key=gone, close_notes=None, close_code=None))["closed"] is False
+    fake.add_message("AAkAvanishing", "s", "x@example.test", "b")
+    del fake.messages["AAkAvanishing"]
+    assert (await tracker("tracker_close", key="mail:AAkAvanishing", close_notes=None, close_code=None))[
+        "closed"
+    ] is False
+
+
+async def test_auto_replies_reports_and_follow_ups_are_not_candidates(tracker: Tracker, fake: FakeMicrosoft) -> None:
+    taken = fake.messages[MAIL_TAKEN].render(None)["conversationId"]
+    fake.add_message(
+        "AAkAoof", "Automatic reply: away", "x@example.test", "b", message_class="IPM.Note.Rules.OofTemplate.Microsoft"
+    )
+    fake.add_message("AAkAndr", "Undeliverable", "postmaster@example.test", "b", message_class="REPORT.IPM.Note.NDR")
+    fake.add_message(
+        "AAkAauto", "Ticket 42 received", "noreply@vendor.test", "b", headers={"Auto-Submitted": "auto-replied"}
+    )
+    fake.add_message("AAkAhuman", "Hello", "y@example.test", "b", headers={"Auto-Submitted": "no"})
+    fake.add_message("AAkAfollow", "RE: New laptop for Kim", "kim.lee@example.test", "Thanks!", conversation=taken)
+    assert (await tracker("tracker_list_candidates", limit=50))["keys"] == [HTML, PLAIN, "mail:AAkAhuman"]
+
+
+async def test_a_follow_up_to_a_thread_taken_long_ago_is_found_in_the_whole_mailbox(
+    tracker: Tracker, fake: FakeMicrosoft
+) -> None:
+    """The taken message may have left the Inbox (archived to another folder): the mailbox is asked."""
+    fake.messages[MAIL_TAKEN].folder = "archive"
+    taken = fake.messages[MAIL_TAKEN].render(None)["conversationId"]
+    fake.add_message("AAkAfollow", "RE: New laptop for Kim", "kim.lee@example.test", "Thanks!", conversation=taken)
+    assert (await tracker("tracker_list_candidates", limit=50))["keys"] == [HTML, PLAIN]
+
+
+# ─────────────────────────── key bounds ───────────────────────────
+
+
+def test_a_mail_key_leaves_room_for_a_fan_out_childs_suffix() -> None:
+    """A child of `mail:<id>` is `mail:<id>.<n>`: with n up to 99 it must still fit the profile's 128."""
+    assert parse_key("mail:" + "A" * 119) is not None
+    assert parse_key("mail:" + "A" * 120) is None
+    assert len("mail:" + "A" * 119 + ".99") <= 128
+
+
+async def test_an_id_too_long_for_a_childs_key_is_skipped(tracker: Tracker, fake: FakeMicrosoft) -> None:
+    fake.add_message("B" * 120, "too long for a child", "x@example.test", "b", received="2026-11-19T00:00:00Z")
+    found = await tracker("tracker_list_candidates", limit=50)
+    assert (found["keys"], found["skipped"]) == ([HTML, PLAIN], 1)
+
+
+@pytest.mark.parametrize("key", ["x" * 300, "DESK-" + "1" * 200, "mail:" + "A" * 200])
+async def test_a_mirrored_write_on_an_over_long_foreign_key_still_answers_within_the_profile(
+    mcp: Mcp, profile: Profile | None, key: str
+) -> None:
+    answers = {
+        "tracker_set_state": await mcp.call("tracker_set_state", key=key, status="s", label=None, remove_labels=[]),
+        "tracker_upsert_status": await mcp.call("tracker_upsert_status", key=key, markdown="s", marker="status"),
+        "tracker_close": await mcp.call("tracker_close", key=key, close_notes=None, close_code=None),
+        "tracker_comment": await mcp.call("tracker_comment", key=key, markdown="m", action_key="platform:k"),
+    }
+    for tool, answer in answers.items():
+        assert len(answer["key"]) <= 128, tool
+        if profile is not None:
+            problems = list(profile.output_problems(tool, answer))
+            assert not problems, (tool, problems)

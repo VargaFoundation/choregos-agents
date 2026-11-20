@@ -54,6 +54,11 @@ KEYS_URL = "https://login.botframework.com/v1/.well-known/keys"
 ROOT_ID = "1731400000000"
 REPLY_ID = "1731400100000"
 CONVERSATION_ID = f"{FAKE_CHANNEL_ID};messageid={ROOT_ID}"
+#: What Teams sends as `channelData.team.id`: the team's thread id (its General channel), NOT its group id;
+#: the group id comes, sometimes, as `team.aadGroupId`.
+FAKE_TEAM_THREAD_ID = "19:9a8b7c6d5e4f40312a3b4c5d6e7f8091@thread.tacv2"
+#: PidTagMessageClass, as a single-value extended property id.
+MESSAGE_CLASS = "String 0x001A"
 _EP_FILTER = re.compile(r"ep/id eq '((?:[^']|'')*)' and ep/value eq '((?:[^']|'')*)'\)\s*$")
 _EP_EXPAND = re.compile(r"^singleValueExtendedProperties\(\$filter=id eq '((?:[^']|'')*)'\)$")
 
@@ -110,13 +115,20 @@ def activity(
     activity_id: str = ROOT_ID,
     root_id: str | None = None,
     kind: str = "message",
-    team_id: str = FAKE_TEAM_ID,
+    team_thread_id: str = FAKE_TEAM_THREAD_ID,
+    aad_group_id: str | None = FAKE_TEAM_ID,
+    mention: bool = True,
     channel_id: str = FAKE_CHANNEL_ID,
     tenant_id: str = FAKE_TENANT_ID,
     service_url: str = SERVICE_URL_DEFAULT,
     bot_id: str = FAKE_CLIENT_ID,
 ) -> dict[str, Any]:
-    """A Teams channel activity as the Bot Connector posts it to the messaging endpoint."""
+    """A Teams channel activity as the Bot Connector posts it to the messaging endpoint: `team.id` is the
+    team's thread id, `team.aadGroupId` (its group id) is there or not, and the bot's mention is an entity."""
+    team: dict[str, Any] = {"id": team_thread_id, "name": "IT"}
+    if aad_group_id is not None:
+        team["aadGroupId"] = aad_group_id
+    mentions = [{"type": "mention", "text": "<at>Desk</at>", "mentioned": {"id": f"28:{bot_id}", "name": "Desk"}}]
     return {
         "type": kind,
         "id": activity_id,
@@ -133,12 +145,12 @@ def activity(
         "recipient": {"id": f"28:{bot_id}", "name": "Desk"},
         "textFormat": "plain",
         "text": text,
-        "entities": [{"type": "mention", "text": "<at>Desk</at>", "mentioned": {"id": f"28:{bot_id}", "name": "Desk"}}],
+        "entities": [{"type": "clientInfo", "locale": "en-US"}, *(mentions if mention else [])],
         "channelData": {
             "teamsChannelId": channel_id,
-            "teamsTeamId": team_id,
+            "teamsTeamId": team_thread_id,
             "channel": {"id": channel_id},
-            "team": {"id": team_id},
+            "team": team,
             "tenant": {"id": tenant_id},
         },
     }
@@ -158,6 +170,10 @@ class _Message:
     to: list[str] = field(default_factory=list)
     conversation: str = ""
     has_attachments: bool = False
+    #: A Reply-To other than the sender: Graph's createReply addresses it, unless told otherwise.
+    reply_to: list[str] = field(default_factory=list)
+    message_class: str = "IPM.Note"
+    headers: list[dict[str, str]] = field(default_factory=list)
 
     def render(self, select: str | None) -> dict[str, Any]:
         full: dict[str, Any] = {
@@ -173,6 +189,8 @@ class _Message:
             "lastModifiedDateTime": self.received,
             "conversationId": self.conversation or f"conv-{self.id[-12:]}",
             "hasAttachments": self.has_attachments,
+            "replyTo": [{"emailAddress": {"address": a}} for a in self.reply_to],
+            "internetMessageHeaders": [dict(h) for h in self.headers],
         }
         if not select:
             return full
@@ -197,6 +215,10 @@ class FakeMicrosoft:
         self.reject_duplicate_ids = False
         #: The inbox's next page points outside Graph.
         self.foreign_next_link = False
+        #: Graph's createReply, the send, or the Bot Framework's keys fail (503).
+        self.fail_create_reply = False
+        self.fail_send = False
+        self.bot_keys_down = False
         self._ids = itertools.count(100)
         self._seed()
 
@@ -265,9 +287,25 @@ class FakeMicrosoft:
         received: str = "2026-11-18T07:00:00Z",
         categories: list[str] | None = None,
         folder: str = "inbox",
+        conversation: str = "",
+        reply_to: list[str] | None = None,
+        message_class: str = "IPM.Note",
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.messages[identifier] = _Message(
-            identifier, folder, subject, sender, body, content_type, received, list(categories or []), to=[FAKE_MAILBOX]
+            identifier,
+            folder,
+            subject,
+            sender,
+            body,
+            content_type,
+            received,
+            list(categories or []),
+            to=[FAKE_MAILBOX],
+            conversation=conversation,
+            reply_to=list(reply_to or []),
+            message_class=message_class,
+            headers=[{"name": k, "value": v} for k, v in (headers or {}).items()],
         )
 
     def folder(self, name: str) -> list[_Message]:
@@ -308,6 +346,8 @@ class FakeMicrosoft:
         return header.startswith("Bearer ") and self.tokens.get(header[len("Bearer ") :]) == scope
 
     def _bot_metadata(self, request: httpx.Request) -> httpx.Response:
+        if self.bot_keys_down:
+            return httpx.Response(503)
         if request.url.path == "/v1/.well-known/openidconfiguration":
             return httpx.Response(
                 200,
@@ -349,6 +389,8 @@ class FakeMicrosoft:
         method = request.method
         if len(parts) == 3 and parts[0] == "mailFolders" and parts[2] == "messages" and method == "GET":
             return self._list(parts[1].lower(), params)
+        if parts == ["messages"] and method == "GET":
+            return self._list(None, params)
         if len(parts) >= 2 and parts[0] == "messages":
             found = self.messages.get(parts[1])
             if found is None:
@@ -358,7 +400,7 @@ class FakeMicrosoft:
             if len(parts) == 2 and method == "PATCH":
                 return self._patch(found, json.loads(request.content or b"{}"), params)
             if len(parts) == 3 and parts[2] == "createReply" and method == "POST":
-                return self._create_reply(found)
+                return self._create_reply(found, json.loads(request.content or b"{}"))
             if len(parts) == 3 and parts[2] == "send" and method == "POST":
                 return self._send(found)
         return _error(400, "BadRequest")
@@ -370,13 +412,16 @@ class FakeMicrosoft:
             matched = _EP_EXPAND.match(expand)
             if matched:
                 wanted = matched.group(1).replace("''", "'")
-                found = [{"id": k, "value": v} for k, v in message.properties.items() if k == wanted]
+                values = {**message.properties, MESSAGE_CLASS: message.message_class}
+                found = [{"id": k, "value": v} for k, v in values.items() if k == wanted]
                 if found:
                     rendered["singleValueExtendedProperties"] = found
         return rendered
 
-    def _list(self, folder: str, params: dict[str, str]) -> httpx.Response:
-        rows = sorted(self.folder(folder), key=lambda m: m.received, reverse=True)
+    def _list(self, folder: str | None, params: dict[str, str]) -> httpx.Response:
+        """A folder's messages, or the whole mailbox's (`folder` None), newest first."""
+        everything = list(self.messages.values()) if folder is None else self.folder(folder)
+        rows = sorted(everything, key=lambda m: m.received, reverse=True)
         odata_filter = params.get("$filter")
         if odata_filter:
             matched = _EP_FILTER.search(odata_filter)
@@ -387,14 +432,12 @@ class FakeMicrosoft:
         top = int(params.get("$top", "10"))
         skip = int(params.get("$skip", "0"))
         page = rows[skip : skip + top]
-        body: dict[str, Any] = {"value": [m.render(params.get("$select")) for m in page]}
+        body: dict[str, Any] = {"value": [self._render(m, params) for m in page]}
         if skip + top < len(rows):
             host = "https://graph.example.test" if self.foreign_next_link else "https://graph.microsoft.com"
-            select = params.get("$select", "")
-            body["@odata.nextLink"] = (
-                f"{host}/v1.0/users/{FAKE_MAILBOX}/mailFolders/{folder}/messages"
-                f"?$select={select}&$top={top}&$skip={skip + top}"
-            )
+            where = "messages" if folder is None else f"mailFolders/{folder}/messages"
+            query = httpx.QueryParams({k: v for k, v in params.items() if k != "$skip"} | {"$skip": str(skip + top)})
+            body["@odata.nextLink"] = f"{host}/v1.0/users/{FAKE_MAILBOX}/{where}?{query}"
         return httpx.Response(200, json=body)
 
     def _patch(self, message: _Message, values: dict[str, Any], params: dict[str, str]) -> httpx.Response:
@@ -407,7 +450,11 @@ class FakeMicrosoft:
             message.properties[str(prop["id"])] = str(prop["value"])
         return httpx.Response(200, json=message.render(None))
 
-    def _create_reply(self, original: _Message) -> httpx.Response:
+    def _create_reply(self, original: _Message, parameters: dict[str, Any]) -> httpx.Response:
+        """Graph's createReply: a draft to the original's Reply-To (else its sender), and whatever writable
+        properties `message` carries applied to it at creation."""
+        if self.fail_create_reply:
+            return _error(503, "ServiceUnavailable")
         draft = _Message(
             message_id(next(self._ids)),
             "drafts",
@@ -416,15 +463,22 @@ class FakeMicrosoft:
             f"<div>…</div><hr><div>{original.body}</div>",
             "html",
             "2026-11-18T12:00:00Z",
-            to=[original.sender],
+            to=list(original.reply_to) or [original.sender],
             conversation=original.conversation or f"conv-{original.id[-12:]}",
         )
+        raw = parameters.get("message")
+        given: dict[str, Any] = raw if isinstance(raw, dict) else {}
+        self._patch(draft, given, {})
+        if "toRecipients" in given:
+            draft.to = [str(r["emailAddress"]["address"]) for r in given["toRecipients"]]
         self.messages[draft.id] = draft
         return httpx.Response(201, json=draft.render(None))
 
     def _send(self, draft: _Message) -> httpx.Response:
         if draft.folder != "drafts":
             return _error(400, "ErrorInvalidOperation")
+        if self.fail_send:
+            return _error(503, "ServiceUnavailable")
         draft.folder = "sentitems"
         self.sent_mail.append({"id": draft.id, "to": list(draft.to), "subject": draft.subject, "body": draft.body})
         return httpx.Response(202)
