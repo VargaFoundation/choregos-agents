@@ -101,6 +101,39 @@ jobs:
           done
           [ "$found" = 1 ] || echo "no template tests yet"
 
+  e2e:
+    # Each plugin's `e2e/` tests run on the core's e2e bench (Temporal in skipped time, the API in-process,
+    # fakes): copied into the core's `tests/e2e/`, at CHOREGOS_REF. `microsoft-365-desk` plays its
+    # template on its own server there.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play each plugin's end-to-end tests on the core's bench
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/e2e; do
+            [ -d "$dir" ] || continue
+            found=1
+            plugin=$(basename "$(dirname "$dir")")
+            echo "::group::$plugin"
+            cp "$dir"/test_*.py tests/e2e/
+            M365_DESK_PLUGIN_DIR="$GITHUB_WORKSPACE/agents/plugins/microsoft-365-desk" \
+              uv run --frozen pytest -q -p no:cacheprovider $(for f in "$dir"/test_*.py; do echo "tests/e2e/$(basename "$f")"; done)
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no end-to-end tests yet"
+
   matrix:
     # The ServiceNow plugin's matrix cases (`contents.matrix_cases`, the core's agent-case format), played
     # as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
@@ -183,7 +216,7 @@ jobs:
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
-    needs: [servers, plugins, templates, matrix, secrets, dco, publication]
+    needs: [servers, plugins, templates, e2e, matrix, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:

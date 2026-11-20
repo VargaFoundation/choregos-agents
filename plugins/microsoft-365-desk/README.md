@@ -18,6 +18,7 @@ answered in the original thread:
 | Tracker profile | [`server/TRACKER_PROFILE.md`](server/TRACKER_PROFILE.md) | keys, every tool's mapping, idempotence |
 | Procedure | [`procedures/connector.mcp.microsoft-365-desk.md`](procedures/connector.mcp.microsoft-365-desk.md) | the Entra application, the mailbox's RBAC scope, the Azure Bot, the Teams app |
 | Teams app | [`teams/manifest.json`](teams/manifest.json), [`teams/build_app.py`](teams/build_app.py) | a Teams app manifest (v1.16) template — the bot and the RSC permission — and the script that fills it and zips it with its two icons (`server/tests/test_teams_app.py`). Not part of the packed plugin (only what `contents` declares is) |
+| End to end | [`e2e/test_m365_desk_on_the_core_bench.py`](e2e/test_m365_desk_on_the_core_bench.py) | the `access-requests-m365` template on this server, on the core's e2e bench: a mail granted by the CRM's approvers and answered in its thread, a Teams mention answered by a person of the desk (CI's `e2e` job) |
 
 ```sh
 tranibor plugin validate plugins/microsoft-365-desk
