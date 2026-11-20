@@ -88,7 +88,9 @@ Not a candidate:
 
 - a message categorised `Choregos: …`: the platform took it (`tracker_set_state` categorises every
   message the platform mirrors a state to, and only those);
-- an automatic message: an `Auto-Submitted` header other than `no` (RFC 3834; `internetMessageHeaders`),
+- an automatic message: an `Auto-Submitted` header other than `no` (RFC 3834; `internetMessageHeaders`,
+  read on each candidate with the `$select` and `$expand` Graph documents for one message — never on the
+  list, where it documents neither),
   or a message class (PidTagMessageClass, `String 0x001A`) of an out-of-office reply
   (`IPM.Note.Rules.OofTemplate…`) or a report (`REPORT.…`, delivery reports);
 - a follow-up: a message of a conversation in which a message is categorised `Choregos: …`, among the
@@ -158,8 +160,11 @@ Idempotence, per `action_key`:
   found, nothing is sent (`sent: false`). Drafts is searched next: a draft carrying it (an attempt cut
   between `createReply` and `send`) is sent instead of a new one. Otherwise one `createReply` whose
   `message` carries the recipient, the body (as `text`) and the property — the draft is born marked, so an
-  interrupted attempt never leaves an unmarked draft — then `send`. Residual window: a replay between
-  `send` and the moment Sent Items shows the message would send it twice.
+  interrupted attempt never leaves an unmarked draft — then `send`. A `400` to that call (Graph documents
+  its `message` for the body only) falls back to a bare `createReply`, a `PATCH` of the draft with the same
+  properties, then `send`. Residual windows: a replay between `send` and the moment Sent Items shows the
+  message would send it twice; on the fallback, a cut between `createReply` and the `PATCH` leaves an
+  unmarked draft, never sent.
 - **Teams**: the reply carries a visible reference, `Ref: desk-<12 hex>` derived from the action key. A
   reply is not sent again when this process sent it (a bounded memory), when Graph shows a reply of the
   bot carrying that reference in the thread, or when the Bot Connector answers `409` for the activity id

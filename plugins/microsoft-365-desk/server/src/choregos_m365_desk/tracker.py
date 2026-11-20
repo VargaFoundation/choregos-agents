@@ -139,6 +139,14 @@ class Desk:
             raise Refused(f"no message {key.key} in the shared mailbox")
         return found
 
+    async def _is_automatic(self, key: MailKey) -> bool:
+        """An out-of-office reply, a delivery report, an `Auto-Submitted` message: read on the message itself,
+        with the `$select` and `$expand` Graph documents for one message (one call per candidate)."""
+        found = await self._mail_if_there(
+            key, "id,internetMessageHeaders", f"singleValueExtendedProperties($filter=id eq '{MESSAGE_CLASS}')"
+        )
+        return found is not None and _automatic(found)
+
     async def _mail_if_there(self, key: MailKey, select: str, expand: str | None = None) -> dict[str, Any] | None:
         """The message, or `None` when Graph finds none (deleted, or out of the mailbox)."""
         params = {"$select": select, **({"$expand": expand} if expand else {})}
@@ -267,9 +275,10 @@ class Desk:
         skipped = 0
         taken = await self._taken_conversations()
         ignored = 0
+        # Only what Graph documents on a LIST: the headers and the message class are read message by
+        # message below, the way Graph documents them (a single message's `$select`/`$expand`).
         params = {
-            "$select": "id,categories,receivedDateTime,conversationId,internetMessageHeaders",
-            "$expand": f"singleValueExtendedProperties($filter=id eq '{MESSAGE_CLASS}')",
+            "$select": "id,categories,receivedDateTime,conversationId",
             "$orderby": "receivedDateTime desc",
             "$top": str(PAGE_SIZE),
         }
@@ -280,12 +289,15 @@ class Desk:
             for message in page:
                 if state_of(message.get("categories")) is not None:
                     continue
-                if _automatic(message) or str(message.get("conversationId") or "") in taken:
+                if str(message.get("conversationId") or "") in taken:
                     ignored += 1
                     continue
                 key = mail_key(str(message.get("id") or ""))
                 if key is None:
                     skipped += 1
+                    continue
+                if await self._is_automatic(key):
+                    ignored += 1
                     continue
                 keys.append(key.key)
                 if len(keys) >= wanted:
@@ -524,12 +536,20 @@ class Desk:
                 "body": {"contentType": "text", "content": text},
                 "singleValueExtendedProperties": [{"id": ACTION_PROPERTY, "value": action}],
             }
-            draft = await self.graph.request(
-                "POST",
-                f"{mailbox}/messages/{segment(key.message_id)}/createReply",
-                json={"message": message},
-                headers=IMMUTABLE_IDS,
-            )
+            create = f"{mailbox}/messages/{segment(key.message_id)}/createReply"
+            try:
+                draft = await self.graph.request("POST", create, json={"message": message}, headers=IMMUTABLE_IDS)
+            except Failure as failure:
+                if failure.status != 400:
+                    raise
+                # Graph documents createReply's `message` for its body only: a tenant refusing the rest gets
+                # the documented sequence — a bare draft, then an update of its writable properties. A cut
+                # between the two leaves an unmarked draft, never sent: the next attempt makes another.
+                log.info("reply_create_fallback", work_item=key.key)
+                draft = await self.graph.request("POST", create, headers=IMMUTABLE_IDS)
+                await self.graph.request(
+                    "PATCH", f"{mailbox}/messages/{segment(str(draft['id']))}", json=message, headers=IMMUTABLE_IDS
+                )
         await self.graph.request("POST", f"{mailbox}/messages/{segment(str(draft['id']))}/send", headers=IMMUTABLE_IDS)
         log.info("reply_sent", work_item=key.key, channel="mail")
         return {"key": key.key, "channel": "mail", "id": stable_id, "message_id": draft.get("id"), "sent": True}

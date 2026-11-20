@@ -236,3 +236,19 @@ async def test_the_platforms_comment_never_reaches_the_requester(mcp: Mcp, fake:
     comment = await mcp.call("tracker_comment", key=ROOT, markdown="See https://console/approvals", action_key="p:x")
     assert comment["written"] is False
     assert fake.connector_replies == [] and fake.sent_mail == []
+
+
+async def test_a_tenant_refusing_a_rich_create_reply_gets_the_documented_sequence(
+    mcp: Mcp, fake: FakeMicrosoft
+) -> None:
+    """Graph documents createReply's `message` for its body only: refused (400), the server makes a bare
+    draft, updates its recipients, body and mark, then sends it — to the sender only, once per action."""
+    fake.strict = True
+    fake.add_message("AAkAreplyto", "Help", "kim.lee@example.test", "b", reply_to=["attacker@evil.test"])
+    key = "mail:AAkAreplyto"
+    first = await mcp.call("reply", key=key, work_item_key=key, text="Done.", action_key="a1")
+    again = await mcp.call("reply", key=key, work_item_key=key, text="Done.", action_key="a1")
+    assert (first["sent"], again["sent"]) == (True, False)
+    assert [m["to"] for m in fake.sent_mail] == [["kim.lee@example.test"]]
+    [sent] = fake.folder("sentitems")
+    assert (sent.properties[ACTION_PROPERTY], sent.body) == ("a1", "Done.")

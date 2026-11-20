@@ -69,7 +69,10 @@ thread.
 - **State writes** are idempotent PATCHes (`changed`/`written`/`closed: false` when nothing changes); with
   nothing to write they call nobody, and on a message that is gone they are a successful no-op.
 - **A mail reply's draft is born marked**: one `createReply` carries the recipient (the sender, never the
-  Reply-To, no Cc nor Bcc), the body and the action's property.
+  Reply-To, no Cc nor Bcc), the body and the action's property. Graph documents that call's `message` for
+  its body only: a tenant that refuses the rest (`400`) gets the documented sequence — a bare
+  `createReply`, an update of the draft, `send` — whose cut between the first two leaves an unmarked
+  draft that is never sent.
 
 ## Choices
 

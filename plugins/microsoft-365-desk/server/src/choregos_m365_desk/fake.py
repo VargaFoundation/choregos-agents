@@ -218,6 +218,9 @@ class FakeMicrosoft:
         #: Graph's createReply, the send, or the Bot Framework's keys fail (503).
         self.fail_create_reply = False
         self.fail_send = False
+        #: Graph as documented, strictly: createReply takes a `message` with a body only (any other property
+        #: is a 400), and a LIST of messages refuses `internetMessageHeaders` and an `$expand`.
+        self.strict = False
         self.bot_keys_down = False
         self._ids = itertools.count(100)
         self._seed()
@@ -420,6 +423,8 @@ class FakeMicrosoft:
 
     def _list(self, folder: str | None, params: dict[str, str]) -> httpx.Response:
         """A folder's messages, or the whole mailbox's (`folder` None), newest first."""
+        if self.strict and ("internetMessageHeaders" in params.get("$select", "") or "$expand" in params):
+            return _error(400, "ErrorInvalidUrlQuery")
         everything = list(self.messages.values()) if folder is None else self.folder(folder)
         rows = sorted(everything, key=lambda m: m.received, reverse=True)
         odata_filter = params.get("$filter")
@@ -448,6 +453,8 @@ class FakeMicrosoft:
             message.content_type = str(values["body"].get("contentType", "text")).lower()
         for prop in values.get("singleValueExtendedProperties") or []:
             message.properties[str(prop["id"])] = str(prop["value"])
+        if "toRecipients" in values:
+            message.to = [str(r["emailAddress"]["address"]) for r in values["toRecipients"]]
         return httpx.Response(200, json=message.render(None))
 
     def _create_reply(self, original: _Message, parameters: dict[str, Any]) -> httpx.Response:
@@ -455,6 +462,10 @@ class FakeMicrosoft:
         properties `message` carries applied to it at creation."""
         if self.fail_create_reply:
             return _error(503, "ServiceUnavailable")
+        if self.strict and set(
+            (parameters.get("message") or {}) if isinstance(parameters.get("message"), dict) else {}
+        ) - {"body"}:
+            return _error(400, "ErrorInvalidRequest")
         draft = _Message(
             message_id(next(self._ids)),
             "drafts",

@@ -330,3 +330,19 @@ async def test_a_mirrored_write_on_an_over_long_foreign_key_still_answers_within
         if profile is not None:
             problems = list(profile.output_problems(tool, answer))
             assert not problems, (tool, problems)
+
+
+async def test_with_graph_read_strictly_automatic_messages_are_still_not_candidates(
+    tracker: Tracker, fake: FakeMicrosoft
+) -> None:
+    """Graph documents `internetMessageHeaders` and an extended property's `$expand` on ONE message, not on a
+    list: the list asks for neither, and each candidate is read on its own."""
+    fake.strict = True
+    fake.add_message(
+        "AAkAoof", "Automatic reply: away", "x@example.test", "b", message_class="IPM.Note.Rules.OofTemplate.Microsoft"
+    )
+    fake.add_message(
+        "AAkAauto", "Ticket 42 received", "noreply@vendor.test", "b", headers={"Auto-Submitted": "auto-replied"}
+    )
+    fake.add_message("AAkAhuman", "Hello", "y@example.test", "b")
+    assert (await tracker("tracker_list_candidates", limit=50))["keys"] == [HTML, PLAIN, "mail:AAkAhuman"]
