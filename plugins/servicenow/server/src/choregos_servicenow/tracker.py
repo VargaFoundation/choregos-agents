@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The tracker profile (Decision 3): incidents, request items and changes as Choregos work items.
+"""The tracker profile (Decision 3): incidents, request items and changes as Tranibor work items.
 
 The shapes are specified in `TRACKER_PROFILE.md`; the core's `tracker/plugin` adapter is written
 against that page. An item's key is its number (`INC0010001`, `RITM0010001`, `CHG0010001`).
 
-Everything Choregos writes here is a WORK NOTE (internal): a customer-visible comment goes through
+Everything Tranibor writes here is a WORK NOTE (internal): a customer-visible comment goes through
 `add_comment`, which a person approves.
 """
 
@@ -183,7 +183,7 @@ class Tracker:
         if value is None:
             raise Refused(f"{table} has no state {label!r} on this instance")
         values: dict[str, Any] = {"state": value}
-        notes = close_notes or "Closed by Choregos: the work item was delivered."
+        notes = close_notes or "Closed by Tranibor: the work item was delivered."
         if default_code is not None:
             values["close_code"] = close_code or default_code
             values["close_notes"] = notes

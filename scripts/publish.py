@@ -3,7 +3,7 @@
 
 Run with the core's environment, from `.github/workflows/publish.yml`:
 
-    uv run --package choregos-cli python scripts/publish.py plugins \\
+    uv run --package tranibor-cli python scripts/publish.py plugins \\
         --registry ghcr.io/graalsystems/tranibor-agents --source-url https://github.com/…
 
 For each plugin directory, in name order:
@@ -244,7 +244,7 @@ def publish(plan: Plan, client: Registry | None, work: Path, source_url: str) ->
             {
                 "org.opencontainers.image.source": source_url,
                 "org.opencontainers.image.version": plugin.version,
-                "org.opencontainers.image.description": f"Choregos plugin {plugin.name}, {packed.digest}",
+                "org.opencontainers.image.description": f"Tranibor plugin {plugin.name}, {packed.digest}",
             },
         )
         client.sign(f"{plan.ref.rsplit(':', 1)[0]}@{manifest}")

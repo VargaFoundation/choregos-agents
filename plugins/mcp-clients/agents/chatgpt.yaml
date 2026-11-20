@@ -11,7 +11,7 @@ agent:
   tags: [mcp-client, chat]
   kind: external
   display_name: ChatGPT
-  description: ChatGPT, connected to Choregos through the MCP door. It acts with its person's rights, never more, and never decides.
+  description: ChatGPT, connected to Tranibor through the MCP door. It acts with its person's rights, never more, and never decides.
   # An empty version: its person's rights, never more (ADR 0033). `connect` with `read_only` publishes
   # the read-only subset instead (`list_*`, `describe_*`, `search_*`, `get_*`, `summarize_*`).
   spec: {}

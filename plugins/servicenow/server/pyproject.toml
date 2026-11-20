@@ -1,7 +1,7 @@
 [project]
 name = "choregos-servicenow"
 version = "0.1.2"
-description = "MCP server for ServiceNow (Table API), governed by Choregos."
+description = "MCP server for ServiceNow (Table API), governed by Tranibor."
 license = "Apache-2.0"
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "GRAAL.SYSTEMS SAS" }]

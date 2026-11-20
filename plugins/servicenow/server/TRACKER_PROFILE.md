@@ -27,7 +27,7 @@ call answers an MCP error (`isError: true`) whose text starts with `refused:`.
 | `comment(key, markdown)` | `tracker_comment` |
 | `list_candidates(project)` | `tracker_list_candidates` |
 | `verify_webhook` + `parse_webhook` | `tracker_parse_event` (or the server's `POST /events`) |
-| `owns_items` | `False`: the items live in ServiceNow, Choregos reflects them |
+| `owns_items` | `False`: the items live in ServiceNow, Tranibor reflects them |
 | `link`, `set_fields` | not in the profile; `set_fields` maps to the governed `update_record` |
 
 ## `tracker_fetch_item`
@@ -133,7 +133,7 @@ note is added only when the latest note with this marker has a different text; o
 
 ## `tracker_close`
 
-Input: `{"key": "INC0010011", "close_notes": "Delivered by Choregos.", "close_code": null}`
+Input: `{"key": "INC0010011", "close_notes": "Delivered by Tranibor.", "close_code": null}`
 
 Output: `{"key": "INC0010011", "closed": true, "state": "Resolved"}`
 

@@ -6,7 +6,7 @@ The `netops` agent of the core's built-in catalogue (ADR 0040, ADR 0052). It rea
 |:--|--:|:--|
 | [`netops`](agents/netops.yaml) | 4 | Diagnoses network behaviour from flows, policies and firewall rules; proposes every change as code, never applies one. |
 
-Version 1.2.1, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
+Version 1.2.2, core `>=0.25.1,<1.0.0`. The instructions are the core's, byte for byte: the plugin's files
 do not hold the work-item context, which the core prepends when it installs an internal agent. See
 [MIGRATION-FROM-CORE.md](../../MIGRATION-FROM-CORE.md).
 
@@ -37,6 +37,6 @@ here, not a new one. The memory is what the legacy `memory: project` meant (`eff
 lessons go to the project's shared memory. A later version may narrow it.
 
 ```sh
-choregos plugin validate plugins/netops
-choregos plugin pack plugins/netops -o netops-1.2.1.tar.gz   # same bytes every time
+tranibor plugin validate plugins/netops
+tranibor plugin pack plugins/netops -o netops-1.2.2.tar.gz   # same bytes every time
 ```

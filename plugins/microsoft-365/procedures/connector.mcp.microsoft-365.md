@@ -27,7 +27,7 @@ fields:
   Administrator).
 - The `microsoft-365` plugin installed in your organisation (Catalogue, **Plugins**). Its server runs in
   the platform; there is nothing to host. A plugin that brings a server needs a second person's approval.
-- A platform administrator of this Choregos deployment: the application's client secret is read from the
+- A platform administrator of this Tranibor deployment: the application's client secret is read from the
   deployment's environment (`env:`), which only they write.
 - Decide the stage. **Stage 2** reads the calendar only (`list_events_with`). **Stage 3** adds the mail
   and Teams chats a person shares with another (`search_mail_with`, `search_chats_with`). Start with stage
@@ -50,7 +50,7 @@ fields:
 5. **Grant admin consent** for the tenant (**Grant admin consent for <tenant>**), so that each person is
    not asked to consent on their own. Every permission shows *Granted*.
 6. **A client secret.** Certificates & secrets, **New client secret**, an expiry your policy allows (note
-   the date: Choregos cannot read Graph for anyone once it expires). Copy its **Value** once and hand it to
+   the date: Tranibor cannot read Graph for anyone once it expires). Copy its **Value** once and hand it to
    the platform administrator through your secret manager, never by mail or chat.
 7. **Authentication.** Leave implicit grant off (no access tokens, no ID tokens) and **Allow public client
    flows** off.
@@ -63,11 +63,11 @@ fields:
 
 ## Permissions
 
-- Delegated only: Choregos reads Microsoft 365 as the person who asks, never with an identity of its own,
+- Delegated only: Tranibor reads Microsoft 365 as the person who asks, never with an identity of its own,
   so Microsoft 365 decides what that person may read. A call without the person's connected account is
   refused before anything reaches Graph.
 - Stage 2: `Calendars.Read` (their calendar) and `offline_access` (a refresh token, sealed in the person's
-  own space in Choregos). Stage 3 adds `Mail.Read` (their mailbox) and `Chat.Read` (their Teams chats).
+  own space in Tranibor). Stage 3 adds `Mail.Read` (their mailbox) and `Chat.Read` (their Teams chats).
 - Nothing is written to Microsoft 365. The server stores nothing; it returns at most 20 items, 300-character
   snippets, never a full body nor an attachment, and only mail and chats the other person takes part in.
 - The client secret stays with the platform, which redeems each person's code and refreshes their token;
@@ -116,7 +116,7 @@ fields:
 ## When it fails
 
 - **`account_not_connected`**: the person has not connected their account, or disconnected it, or the
-  connector's consent settings changed since they connected (Choregos then asks them to connect again).
+  connector's consent settings changed since they connected (Tranibor then asks them to connect again).
 - **`identity_unavailable`**: no person's token came with the call (the need is not bound `user_consent`),
   or Microsoft refused it: expired, revoked, or the client secret expired. Renew the secret, then each
   person connects again.
@@ -128,4 +128,4 @@ fields:
 - **AADSTS65001** at sign-in: admin consent was not granted, or a scope asked is not on the application.
 - **`rate_limited`**: Microsoft throttled the calls; the message says when to retry.
 - **To cut every access of a person at once**, beyond disconnecting their account: revoke their sessions in
-  Entra (`revokeSignInSessions`), which invalidates the refresh token Choregos holds.
+  Entra (`revokeSignInSessions`), which invalidates the refresh token Tranibor holds.

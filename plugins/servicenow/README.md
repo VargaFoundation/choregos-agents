@@ -1,6 +1,6 @@
 # ServiceNow plugin
 
-Triage ServiceNow incidents with a Choregos agent, under human approval.
+Triage ServiceNow incidents with a Tranibor agent, under human approval.
 
 | Part | Path | What it is |
 |:--|:--|:--|
@@ -23,8 +23,8 @@ inherits any of them from its project; its catalogue version is 2 and no instruc
 | `itsm-triager` | `profile:by_size` | none | none | none | `project/shared` write | Everything it reads and proposes goes through its `servicenow` connector (`mcp_servers`); it never browses, and the ticket's text is data, never a link to follow. |
 
 ```sh
-choregos plugin validate plugins/servicenow
-choregos plugin pack plugins/servicenow -o servicenow-0.1.2.tar.gz   # same bytes every time
+tranibor plugin validate plugins/servicenow
+tranibor plugin pack plugins/servicenow -o servicenow-0.1.2.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.
@@ -64,7 +64,7 @@ connector is this plugin's server, `{kind: "plugin:servicenow/servicenow", scene
 | [`itsm-triage-similar-incidents`](evals/matrix/itsm-triage-similar-incidents.yaml) | E3: `INC0012345`, the Lyon site's VPN; ten similar incidents read one by one, two resolved by `CHG0003311` (MTU on the Lyon concentrator), `KB0010042` | the answer cites `CHG0003311`, `KB0010042`, `MTU`; one `add_work_note` executed (writes allowed), one `add_comment` proposed and not executed (`human_approval`); in the `scripts` cell at most 5 model requests and at least 22 calls from the script |
 | [`itsm-triage-vague-incident`](evals/matrix/itsm-triage-vague-incident.yaml) | C1, a control: `INC0012399` "The application is slow", no CI | `resolve_incident` neither executed, proposed nor called, in both cells |
 
-`choregos plugin validate` checks them (their agent, their doors, their connector naming a server of
+`tranibor plugin validate` checks them (their agent, their doors, their connector naming a server of
 this plugin) and `pack` ships them; the installer keeps them and never plays them. The server's file
 declares how the platform runs it on its fake, `fake: {env: {SERVICENOW_FAKE: "1"}, scenes: [default]}`:
 in a live cell, where the deployment sets `CHOREGOS_EVAL_FAKE_SCENES=1`, the platform runs beside the

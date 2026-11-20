@@ -26,5 +26,5 @@ through the core's `tracker/plugin` adapter (S43-07). `template.schema.json` has
 server as the tracker, so the manifest writes `tracker: plugin:servicenow/servicenow` — a convention
 mirroring the webhook route `/webhooks/plugins/{plugin}/{server}` — until S43-07 settles the form.
 
-Validated by `choregos plugin validate` (manifest) and the core's workflow parser (strict); not yet run
+Validated by `tranibor plugin validate` (manifest) and the core's workflow parser (strict); not yet run
 end to end on a deployment.

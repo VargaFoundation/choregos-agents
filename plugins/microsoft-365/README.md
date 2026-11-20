@@ -11,8 +11,8 @@ their delegated permissions only. It is generic: any assistant binds a need to i
 | Entra check | [`server/entra/`](server/entra), `python -m choregos_microsoft_365.entra` | the reference application of each stage, and the check that an application asks exactly its stage's permissions |
 
 ```sh
-choregos plugin validate plugins/microsoft-365
-choregos plugin pack plugins/microsoft-365 -o microsoft-365-0.1.1.tar.gz   # same bytes every time
+tranibor plugin validate plugins/microsoft-365
+tranibor plugin pack plugins/microsoft-365 -o microsoft-365-0.1.2.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.
@@ -23,7 +23,7 @@ The connector declares `identity_modes: [user_consent]`: each person connects th
 account once in the console (`/me/connected-accounts`), the platform seals the refresh token in their
 personal space and draws an access token for each call. It sends that token to the server in
 `X-Choregos-User-Token`, next to the platform's own bearer token (`CHOREGOS_SERVER_TOKEN`), which
-authenticates Choregos to the server.
+authenticates Tranibor to the server.
 
 - The person's token is the only credential the server sends to Graph, and only to
   `https://graph.microsoft.com/v1.0` (a next page elsewhere is refused; no redirect is followed).

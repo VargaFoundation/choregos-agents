@@ -31,7 +31,7 @@ plugins/<name>/
 
 ## Checks
 
-Every pull request runs `choregos plugin validate` and a reproducible `pack` on each plugin, the tests
+Every pull request runs `tranibor plugin validate` and a reproducible `pack` on each plugin, the tests
 of each server, the ServiceNow plugin's matrix cases played as the core's scripted eval matrix plays them
 and judged by its case judge, the publication script's tests and an offline dry run of it, gitleaks and
 the DCO. Every job that needs the core runs it at one commit, `CHOREGOS_REF` in `ci.yml` (the same in
@@ -51,7 +51,7 @@ contents:
     - evals/matrix/itsm-triage-similar-incidents.yaml
 ```
 
-`choregos plugin validate` checks what the matrix needs to find and play a case: a `task`, an `agent` the
+`tranibor plugin validate` checks what the matrix needs to find and play a case: a `task`, an `agent` the
 plugin ships (or the case's own `agent_spec`), `tools_cells` among `mcp` and `scripts`, and each connector
 that is a plugin's server written `plugin:<this plugin>/<server>` under the server's own name, since the
 agent's tools are `<server>__<operation>`:
@@ -119,11 +119,11 @@ On every push to `main` (or a manual run on `main`), `.github/workflows/publish.
    pinned to a real digest is used as it is.
 2. **The digest goes into the packed descriptor, not into git.** The declared files are copied to a
    staging directory, the placeholder replaced there by the image's digest, and the copy is packed with
-   the core's `choregos plugin pack`. The core's format does not need the source to carry the digest:
+   the core's `tranibor plugin pack`. The core's format does not need the source to carry the digest:
    `pack` treats `image` as any other byte of the server file, and the content digest the index records
    is the packed archive's, which holds the real digest. The repository keeps the placeholder, which is
    never pullable, so nothing generated is committed back. Consequence: for a plugin with a server, the
-   digest `choregos plugin validate` prints on the tree is not the published one.
+   digest `tranibor plugin validate` prints on the tree is not the published one.
 3. **The plugin.** ORAS pushes the archive as `ghcr.io/graalsystems/tranibor-agents/<plugin>:<version>`
    (one layer, `application/vnd.choregos.plugin.v1.tar+gzip`); cosign signs its manifest digest.
 4. **The index.** The published `ghcr.io/graalsystems/tranibor-agents/index` (tag `latest`, one
@@ -147,8 +147,8 @@ visibility); do it once for each new plugin, image and the index, or deployments
 To try the publication without a registry:
 
 ```sh
-cd <core checkout> && uv sync --package choregos-cli
-uv run --package choregos-cli python <this repo>/scripts/publish.py <this repo>/plugins \
+cd <core checkout> && uv sync --package tranibor-cli
+uv run --package tranibor-cli python <this repo>/scripts/publish.py <this repo>/plugins \
     --registry ghcr.io/graalsystems/tranibor-agents --offline --work /tmp/publish
-uv run --package choregos-cli --with pytest pytest <this repo>/scripts/tests
+uv run --package tranibor-cli --with pytest pytest <this repo>/scripts/tests
 ```
