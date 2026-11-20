@@ -2,11 +2,13 @@
 # The procurement plugin (core ADR 0198): the two agents of the comparison of supplier offers. One copies
 # what the offers say into a structure, the other writes the memo from numbers a deterministic step measured.
 # The template `procurement-sourcing` runs them; the job image that extracts and computes comes in a later change.
+# 0.2.0 adds the MCP server `purchasing` (a fixed profile of eleven operations, served by a seeded fake only:
+# its first real backend comes with a later version) and the procedure that connects it.
 apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: procurement
-  version: 0.1.0
+  version: 0.2.0
   publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-
@@ -25,3 +27,5 @@ contents:
   skills: [skills/reading-supplier-offers, skills/writing-comparison-memos]
   templates: [templates/procurement-sourcing]
   evals: [evals/offer-reader.yaml, evals/sourcing-analyst.yaml]
+  procedures: ["procedures/*.md"]
+  servers: [servers/purchasing.yaml]

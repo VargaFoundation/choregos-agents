@@ -5,12 +5,30 @@ the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code 
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `procurement` 0.1.0, core `>=0.28.0,<1.0.0` (provisional floor, below) |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `procurement` 0.2.0, core `>=0.28.0,<1.0.0` (provisional floor, below) |
 | Agent | [`agents/offer-reader.yaml`](agents/offer-reader.yaml) | catalogue role `structure`: copies the offers into `offers_structured` |
 | Agent | [`agents/sourcing-analyst.yaml`](agents/sourcing-analyst.yaml) | catalogue role `compare`: writes `comparison_memo_markdown` |
 | Skills | [`skills/reading-supplier-offers`](skills/reading-supplier-offers/SKILL.md), [`skills/writing-comparison-memos`](skills/writing-comparison-memos/SKILL.md) | the output contract and rules of each agent |
 | Template | [`templates/procurement-sourcing`](templates/procurement-sourcing/README.md) | workflow `offer-comparison`: extract, read, compute, memo, tier, award |
+| Server | [`servers/purchasing.yaml`](servers/purchasing.yaml), source [`server/`](server/PROFILE.md) | the MCP server `purchasing`: eleven operations of a fixed profile, served by a seeded fake only |
+| Procedure | [`procedures/connector.mcp.purchasing.md`](procedures/connector.mcp.purchasing.md) | how the server is connected (today: the fake, no real backend) |
 | Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml) | instruction checks, and six live cases each, with invented suppliers and amounts |
+
+## What version 0.2.0 adds: the server `purchasing`
+
+An MCP server the platform runs and governs, named after what it does and not after a vendor: five reads
+(`search_suppliers`, `get_supplier`, `list_framework_agreements`, `list_contracts`, `get_contract`) and six
+writes (`create_supplier`, `update_supplier`, `archive_supplier`, `add_contract_note`,
+`create_purchase_request`, `cancel_purchase_request`). Every write waits for a person, takes the platform's
+`action_key` (the same key twice writes once), and three come with a compensation. No operation takes or
+returns a bank detail. The profile is fixed in [`server/PROFILE.md`](server/PROFILE.md).
+
+- **Proves**: the profile end to end on a seeded, in-memory fake, in three scenes; that the descriptor and the
+  served tools agree; the idempotency, compensation and no-bank-detail rules, by tests that fail without them.
+- **Does not prove**: anything against a real purchasing system. **No real backend ships in 0.2.0.** The
+  configuration offers `backend: odoo` and the server refuses to start on it, saying the backend arrives with
+  a later version; only the fake (switched on by the descriptor's `fake.env`, never by configuration) serves.
+  The idempotency memory is the process's, not durable.
 
 ## What version 0.1.0 holds
 
@@ -58,11 +76,15 @@ suppliers, What this memo does not cover.
 - **No injection detector.** The agents are told to treat an offer as data and to report an instruction,
   but the protection is mechanical: no write outside the platform, number gates that bound what the memo
   can claim, no credential and no network in the agents, and a person who reads the memo.
-- **Nothing is written outside the platform.** Version 0.1.0 has no governed action and no server.
+- **Nothing is written outside the platform.** The template of 0.1.0 has no governed action. The server of
+  0.2.0 has writes, each held for a person, but serves only a fake: no third-party system is written to.
 
 ## Checks
 
 ```sh
 tranibor plugin validate plugins/procurement
-tranibor plugin pack plugins/procurement -o procurement-0.1.0.tar.gz   # same bytes every time
+tranibor plugin pack plugins/procurement -o procurement-0.2.0.tar.gz   # same bytes every time
 ```
+
+The server's own checks, in `server/` (the `servers` job): `uv sync --all-extras --dev`, `uv run ruff check .`,
+`uv run ruff format --check .`, `uv run mypy --strict src`, `uv run pytest -q`.
