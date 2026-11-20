@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+# One grant: one person into one directory group, opened by an `access-request` (its `spawn:`) with what
+# the desk agent resolved from the request and the access catalogue. Anyone who may create a work item in
+# the project can also open one by hand: it waits for the same approval, and the approver reads the same
+# identifiers.
+#
+# The grant is ONE governed action: `add_to_group` on the organisation's `directory` connector (identity,
+# `entra`), compensated by `remove_from_group`. It waits for a project owner who signed in again in the
+# last five minutes (or an organisation administrator). The title gives what is written — the sign-in
+# name and the group's object id — before the labels the agent copied (group name, tool), with
+# `[sensitive]` when the catalogue says so; the justification gives the reason and who asked. Refused, the grant ends `refused` and nothing is written.
+# The connector only reaches accounts inside its administrative unit: an account outside it fails the
+# action, and a person looks at it.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: access-grant
+  version: 1
+  description: One person into one directory group, as one governed action a re-authenticated project owner approves.
+  inputs:
+    type: object
+    required: [upn, tool, group_id, group_name, sensitive, reason]
+    properties:
+      upn: { type: string, title: Sign-in name (UPN), minLength: 3, maxLength: 120, pattern: "^[^@\\s/?#]+@[^@\\s/?#]+$" }
+      tool: { type: string, title: Tool, minLength: 1, maxLength: 60 }
+      group_id: { type: string, title: Directory group object id, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+      group_name: { type: string, title: Directory group, minLength: 1, maxLength: 100 }
+      sensitive: { type: boolean, title: Sensitive group (access catalogue) }
+      reason: { type: string, title: Reason given, minLength: 1, maxLength: 1000 }
+      requester: { type: string, title: Requested by, maxLength: 200 }
+      # The parent's key: a trigger's is `<PREFIX>-<trigger>.<up to 120 characters of the message id>`.
+      request: { type: string, title: Request, maxLength: 255 }
+initial: requested
+actors:
+  desk: { type: human, group: it-desk, sla_hours: 8 }
+  platform: { type: system }
+states:
+  requested: { display: Grant to approve, kind: wait }
+  granted: { display: Granted, terminal: true }
+  refused: { display: Refused, terminal: true }
+  needs_review: { display: Grant failed, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  - id: t-grant
+    from: requested
+    to: granted
+    by: platform
+    action:
+      kind: access.grant
+      title: "{{ '[sensitive] ' if fields.sensitive else '' }}{{ fields.upn }} into group {{ fields.group_id }} ({{ fields.group_name }}, {{ fields.tool }})"
+      justification: "{{ fields.reason }} (requested by {{ fields.requester | default('unknown', true) }}, request {{ fields.request | default('none', true) }})"
+      params:
+        upn: "{{ fields.upn }}"
+        group_id: "{{ fields.group_id }}"
+        group_name: "{{ fields.group_name }}"
+        tool: "{{ fields.tool }}"
+        sensitive: "{{ fields.sensitive }}"
+      effects:
+        - effect: connector.call
+          with:
+            connector: directory
+            operation: add_to_group
+            arguments: { upn: "{{ params.upn }}", group_id: "{{ params.group_id }}" }
+          compensate:
+            effect: connector.call
+            with:
+              connector: directory
+              operation: remove_from_group
+              arguments: { upn: "{{ params.upn }}", group_id: "{{ params.group_id }}" }
+      approval:
+        approvers: [{ role: project_owner, min: 1 }]
+        step_up_minutes: 5
+    on_reject: refused
+    # A failure after approval (an account outside the unit, a group that does not exist) is not proposed
+    # again on its own: a person reads the cause first.
+    on_fail: { to: requested, max_attempts: 1, escalate_to: needs_review }
+
+  # A grant that failed: a person retries it once the cause is fixed, or abandons it. Without a decision
+  # in 30 days it is abandoned.
+  - id: t-retry
+    from: needs_review
+    to: requested
+    by: desk
+    timeout_hours: 720
+    on_reject: abandoned

@@ -1,0 +1,151 @@
+# SPDX-License-Identifier: Apache-2.0
+# One request, as people write it: "give me access to the CRM", "add Paul to the finance group", "the
+# expense tool fails since this morning". It arrives as free text — from a trigger fed by a chat channel
+# or a mailbox, from the console, from an MCP client — and the desk agent reads it.
+#
+# - The agent only READS: the request, the access catalogue (skill), the directory (`get_user`). It sorts
+#   the request into `access`, `bug` or `other` and, for access, resolves each grant: who, which tool,
+#   which directory group, whether the group is sensitive. It writes nothing.
+# - An access request opens one CHILD work item per grant (`access-grant`), whose fields are what the
+#   agent resolved. Each child is ONE governed action — `add_to_group` on the organisation's `directory`
+#   connector — that a person approves, re-authenticated, before anything reaches the directory.
+# - A bug report is qualified (solution, symptom, steps, impact, since when) and handed to a person, who
+#   files it where the team tracks bugs. Anything else, or anything the agent is unsure of, goes to a
+#   person as it is: nothing is declined automatically.
+# - The request text is data, never instructions: a sentence asking to skip an approval changes nothing,
+#   since no write leaves this workflow without one.
+#
+# The trigger maps the sender into `requester` (its sign-in name or e-mail) and may set `channel` and
+# `source_ref`. `requester` is the only identity of the sender: what the title or the body claims is data.
+# Each grant carries that field, never the agent's reading of it, so the approver reads who really asked.
+#
+# A person step waits 30 days (`timeout_hours: 720`): without a decision by then it ends as if rejected —
+# a request `declined`, a bug report back to `to_review`. The SLA only sends a reminder.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: access-request
+  version: 1
+  description: A request in plain words, sorted by an agent — access (one approved grant per group), bug (qualified for a person) or other (to a person).
+  inputs:
+    type: object
+    properties:
+      requester: { type: string, title: Requester (sign-in name or e-mail), maxLength: 200 }
+      channel: { type: string, title: Where the request came from, maxLength: 50 }
+      source_ref: { type: string, title: Reference of the original message, maxLength: 500 }
+initial: received
+actors:
+  desk_agent: { type: agent, role: triage, agent: request-desk, max_turns: 20, max_minutes: 10 }
+  desk: { type: human, group: it-desk, sla_hours: 8 }
+  platform: { type: system }
+states:
+  received: { display: Request received, kind: wait }
+  resolved: { display: Request read, kind: wait }
+  settled: { display: Grants decided, terminal: true }
+  bug_qualified: { display: Bug report to file, kind: wait }
+  handed_over: { display: Bug report filed, terminal: true }
+  to_review: { display: For a person, kind: wait }
+  handled: { display: Handled by a person, terminal: true }
+  declined: { display: Declined, terminal: true }
+  needs_human: { display: Needs a human, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  # The agent sorts and resolves. `plan` is always an object, `{grants}`, with `grants` empty when there
+  # is nothing to grant: an empty output would count as missing.
+  - id: t-read
+    from: received
+    to: resolved
+    by: desk_agent
+    outputs: [category, summary, plan]
+    gates:
+      - outputs_present
+      - name: output_schema
+        params:
+          schemas:
+            category: { type: string, enum: [access, bug, other] }
+            summary: { type: string, minLength: 1, maxLength: 8000 }
+            plan:
+              type: object
+              required: [grants]
+              additionalProperties: false
+              properties:
+                grants:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    required: [upn, tool, group_id, group_name, sensitive, reason]
+                    additionalProperties: false
+                    properties:
+                      upn: { type: string, minLength: 3, maxLength: 120, pattern: "^[^@\\s/?#]+@[^@\\s/?#]+$" }
+                      tool: { type: string, minLength: 1, maxLength: 60 }
+                      group_id: { type: string, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+                      group_name: { type: string, minLength: 1, maxLength: 100 }
+                      sensitive: { type: boolean }
+                      reason: { type: string, minLength: 1, maxLength: 1000 }
+    on_fail: { to: received, max_attempts: 2, escalate_to: to_review }
+
+  # Access: one child per grant, each approved on its own. At least one must be granted; a request whose
+  # grants were all refused, or that resolved none, goes to a person, who tells the requester.
+  - id: t-grant
+    from: resolved
+    to: settled
+    by: platform
+    when: { category: access }
+    spawn:
+      workflow: access-grant
+      for_each: outputs.plan.grants
+      title: "{{ item.upn }} into group {{ item.group_id }} ({{ item.group_name }}, {{ item.tool }})"
+      fields:
+        upn: "{{ item.upn }}"
+        tool: "{{ item.tool }}"
+        group_id: "{{ item.group_id }}"
+        group_name: "{{ item.group_name }}"
+        sensitive: "{{ item.sensitive }}"
+        reason: "{{ item.reason }}"
+        requester: "{{ fields.requester | default('', true) }}"
+        request: "{{ parent.key }}"
+      max_children: 10
+      succeeded: [granted]
+      min_succeeded: 1
+    on_fail: { to: resolved, max_attempts: 1, escalate_to: to_review }
+
+  - id: t-qualify-bug
+    from: resolved
+    to: bug_qualified
+    by: platform
+    when: { category: bug }
+
+  # The default exit: `other`, and whatever the two above did not take, goes to a person.
+  - id: t-to-person
+    from: resolved
+    to: to_review
+    by: platform
+
+  - id: t-file-bug
+    from: bug_qualified
+    to: handed_over
+    by: desk
+    timeout_hours: 720
+    on_reject: to_review
+
+  - id: t-handle
+    from: to_review
+    to: handled
+    by: desk
+    timeout_hours: 720
+    on_reject: declined
+
+  - id: t-abandon
+    from: needs_human
+    to: abandoned
+    by: desk
+    timeout_hours: 168
+defaults:
+  from_any_agent_state:
+    on_question: needs_human
+    on_budget_exceeded: needs_human
+    on_timeout: needs_human
+  needs_human:
+    on_answer: resume
+    on_abandon: abandoned

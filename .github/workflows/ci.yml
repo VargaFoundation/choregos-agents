@@ -71,6 +71,36 @@ jobs:
           done
           [ "$found" = 1 ] || echo "no plugin yet"
 
+  templates:
+    # Each plugin's `tests/` (a template's own checks), played from a core checkout at CHOREGOS_REF:
+    # `tranibor plugin validate` reads a template's manifest only, these read what it ships the way the
+    # platform does (its workflows, the core's template conformance checks, the fan-out and the actions).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play each plugin's template tests against the core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/tests; do
+            [ -d "$dir" ] || continue
+            found=1
+            echo "::group::$dir"
+            TRANIBOR_CORE="$PWD" uv run --frozen pytest -q -p no:cacheprovider "$dir"
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no template tests yet"
+
   matrix:
     # The ServiceNow plugin's matrix cases (`contents.matrix_cases`, the core's agent-case format), played
     # as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
@@ -153,7 +183,7 @@ jobs:
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
-    needs: [servers, plugins, matrix, secrets, dco, publication]
+    needs: [servers, plugins, templates, matrix, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# The access-requests plugin (ADR 0181 of the core: a trade ships as a plugin): the requests a technical
+# lead or an IT desk receives all day — access to a tool, a place in a group, a bug — sorted by an agent
+# that only reads, and every write to the directory approved by a person. Ships one template, its two
+# workflows, its agent and its two skills, template-local.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: access-requests
+  version: 0.1.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: >-
+    Requests in plain words — access to a tool, a place in a group, a bug — become work items. An agent
+    sorts each one with the access catalogue and the directory; every grant is one governed action a
+    re-authenticated project owner approves before the directory is written; a bug is qualified for a
+    person to file; anything else goes to a person.
+  homepage: https://github.com/graalsystems/tranibor-agents
+  # The core release whose template machinery the workflows use: fan-out (`spawn:`), the `output_schema`
+  # guarantee, the `entra` identity connector, HTTP triggers. `tests/` plays them against a core checkout.
+  core: ">=0.27.14,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+  # The organisation connector the grants call, by name, and its capability (as the template declares it).
+  org_connectors:
+    directory: identity
+contents:
+  templates: [templates/access-requests]
