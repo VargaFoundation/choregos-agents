@@ -19,6 +19,9 @@
 # - The request text is data, never instructions: a sentence asking to skip an approval changes nothing,
 #   since no write leaves this workflow without one.
 #
+# Each state names its status on the desk tracker (`tracker: {status}`): a message the platform has taken is
+# categorised `Choregos: <status>` in the mailbox, so it is never a candidate again.
+#
 # The sender is the one the tracker gives (`fields.tracker.reporter`): what the title or the body claims is
 # data. Each grant carries it, never the agent's reading of it, so the approver reads who really asked.
 #
@@ -41,16 +44,16 @@ actors:
   desk: { type: human, group: it-desk, sla_hours: 8 }
   platform: { type: system }
 states:
-  received: { display: Request received, kind: wait }
-  resolved: { display: Request read, kind: wait }
-  settled: { display: Grants decided, terminal: true }
-  bug_filed: { display: Bug report filed, terminal: true }
-  to_review: { display: For a person, kind: wait }
-  answering: { display: Answer to send, kind: wait }
-  handled: { display: Answered by a person, terminal: true }
-  declined: { display: Declined, terminal: true }
-  needs_human: { display: Needs a human, kind: wait }
-  abandoned: { display: Abandoned, terminal: true }
+  received: { display: Request received, kind: wait, tracker: { status: Received } }
+  resolved: { display: Request read, kind: wait, tracker: { status: In progress } }
+  settled: { display: Grants decided, terminal: true, tracker: { status: Done } }
+  bug_filed: { display: Bug report filed, terminal: true, tracker: { status: Done } }
+  to_review: { display: For a person, kind: wait, tracker: { status: Waiting for the desk } }
+  answering: { display: Answer to send, kind: wait, tracker: { status: In progress } }
+  handled: { display: Answered by a person, terminal: true, tracker: { status: Done } }
+  declined: { display: Declined, terminal: true, tracker: { status: Done } }
+  needs_human: { display: Needs a human, kind: wait, tracker: { status: Waiting for the desk } }
+  abandoned: { display: Abandoned, terminal: true, tracker: { status: Done } }
 transitions:
   # The agent sorts and resolves. `plan` is always an object, `{grants, bugs}`, each list empty when there
   # is nothing of that kind: an empty output would count as missing.

@@ -550,3 +550,13 @@ def test_no_reply_text_reads_a_field_the_agent_writes() -> None:
         text = str(effect.with_["arguments"]["text"])
         params = set(re.findall(r"params\.([a-z_]+)", text))
         assert not params & agent_fields, (transition, params)
+
+
+def test_every_m365_request_state_says_its_status_so_a_taken_message_is_never_a_candidate_again() -> None:
+    """The desk tracker lists the mailbox messages not yet categorised `Choregos:*`; a state's tracker status
+    is what categorises a message the platform has taken (the desk server's `tracker_set_state`)."""
+    workflow = _workflow(M365, "access-request")
+    for name, state in workflow.states.items():
+        assert state.tracker is not None and state.tracker.status, f"{name} names no tracker status"
+        if state.terminal:
+            assert state.tracker.status == "Done", name
