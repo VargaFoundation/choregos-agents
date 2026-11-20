@@ -59,7 +59,7 @@ transitions:
         group_id: "{{ fields.group_id }}"
         group_name: "{{ fields.group_name }}"
         tool: "{{ fields.tool }}"
-        sensitive: "{{ fields.sensitive }}"
+        sensitive: "{{ 'yes' if fields.sensitive else 'no' }}"
       effects:
         - effect: connector.call
           with:

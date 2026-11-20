@@ -393,6 +393,7 @@ def test_the_grant_waits_for_the_tools_approvers_never_for_the_people_it_concern
 ) -> None:
     proposed = _proposed(template, "access-grant", "t-grant", {**GRANT_FIELDS, "sensitive": sensitive})
     assert proposed["title"].startswith("[sensitive] ") is sensitive
+    assert proposed["params"]["sensitive"] == ("yes" if sensitive else "no"), "the approver reads yes or no"
     assert (
         proposed["title"]
         .removeprefix("[sensitive] ")
