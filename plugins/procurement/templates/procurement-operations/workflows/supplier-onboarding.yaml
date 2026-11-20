@@ -1,0 +1,254 @@
+# SPDX-License-Identifier: Apache-2.0
+# The onboarding of a supplier (core ADRs 0197 and 0198, plan PA-07). A person hands the supplier's file as
+# documents and types who the supplier is; a job turns the documents into text, an agent copies the identity
+# and the dated documents into a structure, a job MEASURES what is missing, expired, different from what the
+# person typed and already held by the purchasing system, a person reviews the file, attested, and the record
+# is created by one governed action that people of the same group approve.
+#
+# - The agent never judges. It dates the documents; `supplier-check` decides, from `--as-of today`, which
+#   have expired. The kinds of document the file must hold are `--required` arguments of the job HERE, never a
+#   field: a field is editable by the person the requirement constrains.
+# - Any finding stops at a person (`needs_human`), on measured facts only: an agent's word clears nothing.
+# - The only action is `t-create`. Its arguments come from the fields, which the check proved equal to the
+#   file's identity, and never from a bank detail: the profile has no argument for one and the workflow
+#   handles none.
+# - `separation_of_duties` keeps whoever proposes out of the approval; `min: 2` makes the review's author
+#   unable to be the only approver, since the review is a person of the same group.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: supplier-onboarding
+  version: 1
+  description: A supplier's file read, measured on its completeness and identity, reviewed by a person and the record created in the purchasing system under a two-person approval.
+  catalogue:
+    title: Onboard a supplier
+    summary: Hand the supplier's documents and its identity. A job measures what is missing, expired, different or already held, a person reviews, and the record is created under approval. No bank detail is handled.
+    tags: [procurement, suppliers]
+  attachments: { accept: [pdf, docx], min: 1, max: 10 }
+  inputs:
+    type: object
+    required: [legal_name, registration_number, country, category]
+    properties:
+      legal_name: { type: string, minLength: 1, title: Legal name of the supplier }
+      registration_number: { type: string, minLength: 1, title: Company registration number }
+      country: { type: string, pattern: "^[A-Za-z]{2}$", title: Country of registration (two-letter ISO 3166-1 code) }
+      category: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$", title: Category (lower-case words joined by hyphens, e.g. office-supplies) }
+      # Written by the review and decline forms of the group. A value typed when the work item is opened is a
+      # draft: the form replaces it, under the person's attestation.
+      review_note: { type: string, title: What the reviewer checked }
+      decline_reason: { type: string, title: Why the supplier is not onboarded }
+initial: received
+actors:
+  extractor: { type: job, role: extract, command: [tranibor-procurement, extract], image: procurement, max_minutes: 15 }
+  checker: { type: agent, role: structure, agent: supplier-file-checker, max_turns: 20, max_minutes: 15 }
+  inspector:
+    type: job
+    role: check
+    # The kinds of document a supplier's file must hold. `company_registration` is an extract or certificate of
+    # registration, `tax_clearance` a certificate of tax or social-contribution compliance, `liability_insurance`
+    # a certificate of liability insurance. An organisation edits this list (its own kinds, written as the agent
+    # writes them); the template's README says how.
+    command:
+      - tranibor-procurement
+      - supplier-check
+      - --required
+      - company_registration
+      - tax_clearance
+      - liability_insurance
+      - --as-of
+      - today
+      - --duplicates
+    image: procurement
+    max_minutes: 5
+    tools: [{ connector: purchasing, tools: [search_suppliers] }]
+  reviewer: { type: human, group: supplier-data, sla_hours: 48 }
+  platform: { type: system }
+states:
+  received: { display: File received }
+  extracted: { display: Documents read into text }
+  filed: { display: File structured }
+  checked: { display: File measured }
+  awaiting_review: { display: The reviewer decides, kind: wait }
+  approved: { display: File reviewed }
+  created: { display: Supplier created, terminal: true }
+  declined: { display: Not onboarded, terminal: true }
+  needs_human: { display: Needs a human, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  # No OCR: a scan, an encrypted file or a failed conversion counts in `files_unreadable` and goes to a person.
+  - id: t-extract
+    from: received
+    to: extracted
+    by: extractor
+    inputs: [attachments]
+    outputs: [offers_text]
+    output_types: { offers_text: json }
+    gates:
+      - outputs_present
+      - name: evidence_facts
+        params:
+          keys: [files_read, files_unreadable, files_truncated]
+          min: { files_read: 1 }
+          max: { files_unreadable: 0, files_truncated: 0 }
+          measured_only: true
+    on_fail: { to: needs_human, max_attempts: 1, escalate_to: needs_human }
+
+  # The schema is the one of the job image (`supplier_file.schema.json`), copied here and compared by a test.
+  - id: t-file
+    from: extracted
+    to: filed
+    by: checker
+    inputs: [offers_text]
+    outputs: [supplier_file]
+    output_types: { supplier_file: json }
+    gates:
+      - name: output_schema
+        params:
+          schemas:
+            supplier_file:
+              {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://tranibor.dev/schemas/procurement/supplier_file.schema.json",
+                "title": "supplier_file",
+                "description": "A supplier's onboarding file, read by an agent: who the supplier says it is and the documents it handed. A date the document does not carry is null. No bank detail belongs here.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["identity", "documents"],
+                "properties": {
+                  "identity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["legal_name", "registration_number", "country"],
+                    "properties": {
+                      "legal_name": { "type": "string", "minLength": 1 },
+                      "registration_number": { "type": "string", "minLength": 1 },
+                      "country": { "type": "string", "minLength": 1 }
+                    }
+                  },
+                  "documents": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["kind", "file", "issuer", "issued_on", "expires_on", "identifier"],
+                      "properties": {
+                        "kind": { "description": "An open string: the kinds a workflow requires are its own.", "type": "string", "minLength": 1 },
+                        "file": { "type": "string", "minLength": 1 },
+                        "issuer": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+                        "issued_on": { "oneOf": [{ "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }, { "type": "null" }] },
+                        "expires_on": { "oneOf": [{ "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }, { "type": "null" }] },
+                        "identifier": { "oneOf": [{ "type": "string" }, { "type": "null" }] }
+                      }
+                    }
+                  }
+                },
+                "examples": [
+                  {
+                    "identity": { "legal_name": "Alderbrook Supplies Ltd", "registration_number": "GB 000-1234", "country": "GB" },
+                    "documents": [
+                      { "kind": "insurance", "file": "alderbrook-insurance.pdf", "issuer": "Northfield Mutual", "issued_on": "2026-01-10", "expires_on": "2027-01-09", "identifier": "NM-77120" }
+                    ]
+                  }
+                ]
+              }
+    on_fail: { to: extracted, max_attempts: 2, escalate_to: needs_human }
+
+  # Any finding is not a retry: a document to ask for, an identity that differs or a record that exists is a
+  # person's business. `supplier_check` lists each finding for the person who answers.
+  - id: t-check
+    from: filed
+    to: checked
+    by: inspector
+    inputs: [supplier_file]
+    outputs: [supplier_check]
+    output_types: { supplier_check: json }
+    gates:
+      - outputs_present
+      - name: evidence_facts
+        params:
+          keys: [documents_missing, documents_expired, identity_mismatch, duplicates_found]
+          max: { documents_missing: 0, documents_expired: 0, identity_mismatch: 0, duplicates_found: 0 }
+          measured_only: true
+    on_fail: { to: needs_human, max_attempts: 1, escalate_to: needs_human }
+
+  - id: t-route
+    from: checked
+    to: awaiting_review
+    by: platform
+
+  - id: t-review
+    from: awaiting_review
+    to: approved
+    by: reviewer
+    task:
+      title: Review the supplier's file
+      instructions: >-
+        Open the documents and the measured check. The check found no missing or expired document, no
+        difference between what was typed and what the documents state, and no supplier already held under
+        this identity; it did not read the documents for authenticity, and it handled no bank detail. Say
+        what you checked. Another person of your group approves the creation next.
+      form:
+        type: object
+        required: [review_note]
+        properties:
+          review_note: { type: string, minLength: 1, title: What the reviewer checked }
+      attest: I reviewed the supplier's documents and the measured check, and the record may be created.
+  - id: t-decline
+    from: awaiting_review
+    to: declined
+    by: reviewer
+    task:
+      title: Do not onboard this supplier
+      instructions: Say why the supplier is not onboarded.
+      form:
+        type: object
+        required: [decline_reason]
+        properties:
+          decline_reason: { type: string, minLength: 1, title: Why the supplier is not onboarded }
+
+  # The only action. Its arguments are the identity the check proved equal to the file's, and the category.
+  - id: t-create
+    from: approved
+    to: created
+    by: platform
+    action:
+      kind: procurement.create_supplier
+      title: "Create the supplier {{ fields.legal_name }} ({{ fields.country }})"
+      justification: file reviewed by the group supplier-data
+      params:
+        name: "{{ fields.legal_name }}"
+        registration_number: "{{ fields.registration_number }}"
+        country: "{{ fields.country }}"
+        category: "{{ fields.category }}"
+      effects:
+        - effect: connector.call
+          with:
+            connector: purchasing
+            operation: create_supplier
+            arguments:
+              name: "{{ params.name }}"
+              registration_number: "{{ params.registration_number }}"
+              country: "{{ params.country }}"
+              categories: ["{{ params.category }}"]
+      approval:
+        approvers: [{ role: approver, group: supplier-data, min: 2 }]
+        step_up_minutes: 10
+        separation_of_duties: true
+    on_fail: { to: approved, max_attempts: 2, escalate_to: needs_human }
+
+  - id: t-abandon
+    from: needs_human
+    to: abandoned
+    by: reviewer
+    timeout_hours: 168
+
+artifacts:
+  supplier_check: { show: tab, title: Measured check of the file }
+defaults:
+  from_any_agent_state:
+    on_question: needs_human
+    on_budget_exceeded: needs_human
+    on_timeout: needs_human
+  needs_human:
+    on_answer: resume
+    on_abandon: abandoned

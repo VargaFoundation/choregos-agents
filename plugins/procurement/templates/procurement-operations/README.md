@@ -1,0 +1,64 @@
+# procurement-operations — onboard a supplier, a record created under approval
+
+One workflow, `supplier-onboarding`, for a purchasing team that wants a supplier record created only after a
+person reviewed a file whose completeness a job measured, and after two people approved the write.
+
+It needs the organisation connector `purchasing` (the plugin's MCP server, installed with the plugin). The
+comparison of offers, `procurement-sourcing`, does not: it stays usable without it.
+
+The work item takes one to ten files (`pdf`, `docx`) and four fields: `legal_name`, `registration_number`,
+`country` (two letters) and `category` (lower-case words joined by hyphens), all required.
+
+| Step | Who | What happens | Gates | On failure |
+|:--|:--|:--|:--|:--|
+| `t-extract` | job `extract` | converts each file to text | `outputs_present`; measured `files_read` >= 1, `files_unreadable` = 0, `files_truncated` = 0 | a person (`needs_human`) |
+| `t-file` | agent `supplier-file-checker` | copies the identity and each dated document into `supplier_file` | `output_schema` (the job image's `supplier_file` schema) | back to `extracted` twice, then a person |
+| `t-check` | job `supplier-check` | measures what is missing, expired, different from the fields, already held | measured `documents_missing`, `documents_expired`, `identity_mismatch`, `duplicates_found`, each = 0 | a person, with `supplier_check` listing each finding |
+| review | group `supplier-data` (48 h) | reviews the file and the check, attested; or declines with a reason | the attestation | |
+| `t-create` | the platform | one governed action, `procurement.create_supplier`, calls `purchasing.create_supplier` | approval, below | back to `approved` twice, then a person |
+
+## The default `--required` kinds, and editing them
+
+The job `supplier-check` is given the kinds of document the file must hold, in its command in the workflow
+file (never a field: a field can be edited by the person the requirement constrains). The defaults:
+
+- `company_registration`: an extract or certificate of the company's registration;
+- `tax_clearance`: a certificate of tax or social-contribution compliance;
+- `liability_insurance`: a certificate of liability insurance.
+
+An organisation edits this list in its own copy of the workflow, one `--required` kind per entry. The
+agent writes each document's `kind` as a lower-case label with words joined by underscores, and the job
+compares after ignoring case, spaces and punctuation: a kind an organisation adds must be one the agent
+would write for that document (the agent names the five kinds above and uses a short label of its own for
+any other), so check a new kind against a real file before relying on it. A kind the agent writes
+otherwise counts as missing, which stops the work item at a person: it errs on the safe side.
+
+## The approval of the creation
+
+The action is approved by people of the group `supplier-data`, rank `approver` or above, **two of them**
+(`min: 2`), each re-authenticated within 10 minutes, and `separation_of_duties` is on. The person who
+reviewed the file belongs to the same group, so they cannot be the only approver: a second person must
+decide. Nobody decides twice. The arguments of `create_supplier` are the supplier's name, registration
+number and country, which the check proved equal to what the documents state, and the category: no other
+field, and **no bank detail is handled** by the workflow, the agent, the job or the server's profile.
+Changing a supplier's bank account stays a human process. A creation the purchasing system refuses as a
+duplicate stops at a person.
+
+## What the workflow guarantees
+
+- The agent dates documents and judges none: a document is expired because a job compared its date with
+  today's, and any finding stops at a person on measured facts only.
+- Nothing is written to the purchasing system before a review and a two-person approval.
+- The only action is the creation; it has a compensation (archiving the record) declared by the server.
+
+## What it does not guarantee (ADR 0198)
+
+- **No OCR.** A scanned document is not read; it counts in `files_unreadable` and stops at a person.
+- **No authentication of documents.** The check measures presence, dates, identity and duplicates; that a
+  certificate is genuine is the reviewer's judgment.
+- **No injection detector.** The protection is mechanical: the agent holds no tool, no web and no memory,
+  its output is held to a schema, nothing is written before two approvals.
+- **The duplicate check is what the connector finds**: a supplier held under another spelling of the name
+  and another registration number is not found.
+- **Measured does not mean true.** A document that states a wrong registration number, copied faithfully,
+  is caught only if it differs from what the person typed.

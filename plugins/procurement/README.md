@@ -8,11 +8,13 @@ the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code 
 | Manifest | [`plugin.yaml`](plugin.yaml) | `procurement` 0.2.0, core `>=0.28.0,<1.0.0` (provisional floor, below) |
 | Agent | [`agents/offer-reader.yaml`](agents/offer-reader.yaml) | catalogue role `structure`: copies the offers into `offers_structured` |
 | Agent | [`agents/sourcing-analyst.yaml`](agents/sourcing-analyst.yaml) | catalogue role `compare`: writes `comparison_memo_markdown` |
+| Agent | [`agents/supplier-file-checker.yaml`](agents/supplier-file-checker.yaml) | catalogue role `structure`: copies a supplier's identity and dated documents into `supplier_file` |
 | Skills | [`skills/reading-supplier-offers`](skills/reading-supplier-offers/SKILL.md), [`skills/writing-comparison-memos`](skills/writing-comparison-memos/SKILL.md) | the output contract and rules of each agent |
 | Template | [`templates/procurement-sourcing`](templates/procurement-sourcing/README.md) | workflow `offer-comparison`: extract, read, compute, memo, tier, award |
+| Template | [`templates/procurement-operations`](templates/procurement-operations/README.md) | workflow `supplier-onboarding`: extract, read, measure, review, create the record under approval; needs the connector `purchasing` |
 | Server | [`servers/purchasing.yaml`](servers/purchasing.yaml), source [`server/`](server/PROFILE.md) | the MCP server `purchasing`: eleven operations of a fixed profile, served by a seeded fake only |
 | Procedure | [`procedures/connector.mcp.purchasing.md`](procedures/connector.mcp.purchasing.md) | how the server is connected (today: the fake, no real backend) |
-| Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml) | instruction checks, and six live cases each, with invented suppliers and amounts |
+| Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml), [`evals/supplier-file-checker.yaml`](evals/supplier-file-checker.yaml) | instruction checks, and live cases each, with invented suppliers and amounts |
 
 ## What version 0.2.0 adds: the server `purchasing`
 
@@ -29,6 +31,20 @@ returns a bank detail. The profile is fixed in [`server/PROFILE.md`](server/PROF
   configuration offers `backend: odoo` and the server refuses to start on it, saying the backend arrives with
   a later version; only the fake (switched on by the descriptor's `fake.env`, never by configuration) serves.
   The idempotency memory is the process's, not durable.
+
+## What version 0.2.0 adds: supplier onboarding
+
+The agent `supplier-file-checker` and the template `procurement-operations`, whose workflow
+`supplier-onboarding` is the plugin's first governed write: a supplier record created in the purchasing system
+after a person of the group `supplier-data` reviewed a file whose completeness a job measured, and after two
+people of that group approved the creation. The agent copies and dates (it never says a document is valid or
+expired, and never copies a bank detail); the job `supplier-check` measures what is missing, expired,
+different from the request or already held. **No bank detail is handled.**
+
+- **Proves**: the workflow's structure (its only action, its approval, its measured gates, its schema), by
+  tests that fail without each guarantee.
+- **Does not prove**: a run of the workflow, or what a model writes (the agent's live evals are not played
+  by CI); that a document is genuine.
 
 ## What version 0.1.0 holds
 
