@@ -5,27 +5,32 @@
 # identifiers.
 #
 # The grant is ONE governed action: `add_to_group` on the organisation's `directory` connector (identity,
-# `entra`), compensated by `remove_from_group`. It waits for a project owner who signed in again in the
-# last five minutes (or an organisation administrator). The title gives what is written — the sign-in
-# name and the group's object id — before the labels the agent copied (group name, tool), with
-# `[sensitive]` when the catalogue says so; the justification gives the reason and who asked. Refused, the grant ends `refused` and nothing is written.
+# `entra`), compensated by `remove_from_group`. It waits for a member of the tool's approvers group —
+# `access-approvers-<approver_group>` in the identity provider, the catalogue naming the suffix — with at
+# least the project's `approver` rank, signed in again in the last five minutes (ADR 0196 of the core). The
+# person it grants and the person who asked may not decide it, administrators included. The title gives
+# what is written — the sign-in name and the group's object id — before the labels the agent copied
+# (group name, tool), with `[sensitive]` when the catalogue says so; the justification gives the reason and
+# who asked. Refused, the grant ends `refused` and nothing is written.
 # The connector only reaches accounts inside its administrative unit: an account outside it fails the
 # action, and a person looks at it.
 apiVersion: choregos/v1
 kind: Workflow
 metadata:
   name: access-grant
-  version: 1
-  description: One person into one directory group, as one governed action a re-authenticated project owner approves.
+  version: 2
+  description: One person into one directory group, as one governed action the tool's approvers decide — never the person it grants nor who asked.
   inputs:
     type: object
-    required: [upn, tool, group_id, group_name, sensitive, reason]
+    required: [upn, tool, group_id, group_name, sensitive, approver_group, reason]
     properties:
       upn: { type: string, title: Sign-in name (UPN), minLength: 3, maxLength: 120, pattern: "^[^@\\s/?#]+@[^@\\s/?#]+$" }
       tool: { type: string, title: Tool, minLength: 1, maxLength: 60 }
       group_id: { type: string, title: Directory group object id, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
       group_name: { type: string, title: Directory group, minLength: 1, maxLength: 100 }
       sensitive: { type: boolean, title: Sensitive group (access catalogue) }
+      # The suffix of the identity-provider group whose members approve: `access-approvers-<suffix>`.
+      approver_group: { type: string, title: Approvers (access catalogue), pattern: "^[a-z0-9][a-z0-9-]{0,60}$" }
       reason: { type: string, title: Reason given, minLength: 1, maxLength: 1000 }
       requester: { type: string, title: Requested by, maxLength: 200 }
       # The parent's key: a trigger's is `<PREFIX>-<trigger>.<up to 120 characters of the message id>`.
@@ -68,7 +73,8 @@ transitions:
               operation: remove_from_group
               arguments: { upn: "{{ params.upn }}", group_id: "{{ params.group_id }}" }
       approval:
-        approvers: [{ role: project_owner, min: 1 }]
+        approvers: [{ role: approver, group: "access-approvers-{{ fields.approver_group }}", min: 1 }]
+        excluded: ["{{ fields.upn }}", "{{ fields.requester }}"]
         step_up_minutes: 5
     on_reject: refused
     # A failure after approval (an account outside the unit, a group that does not exist) is not proposed

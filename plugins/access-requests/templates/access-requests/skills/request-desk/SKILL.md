@@ -29,6 +29,7 @@ Each grant is one person into one group:
 | `group_id` | the catalogue: the group's object id, never invented or guessed from a name |
 | `group_name` | the catalogue |
 | `sensitive` | the catalogue |
+| `approver_group` | the catalogue's **Approvers** |
 | `reason` | the requester's words, short |
 
 Granting a person already in the group changes nothing (the directory answers "already a member"). A
@@ -37,8 +38,9 @@ the approver reads it twice.
 
 ## Bug
 
-Something that worked does not, or behaves wrongly. The summary holds the report a person files where the
-team tracks bugs:
+Something that worked does not, or behaves wrongly, in a solution the `solutions` skill lists. The report
+— in `summary` and in the plan's one `bugs` entry, with the solution's project — is filed in that
+project's tracker once a person of the desk approves it:
 
 - **Solution**: which application or service, and which part of it.
 - **Symptom**: what happens, with the exact error message when the request gives one.
