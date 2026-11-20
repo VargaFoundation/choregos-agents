@@ -17,7 +17,7 @@ answered in the original thread:
 | Server | [`servers/desk.yaml`](servers/desk.yaml), [`server/`](server) | the MCP server `desk`: a plugin tracker (`implements: [tracker]`), its `reply`, and its `fake` |
 | Tracker profile | [`server/TRACKER_PROFILE.md`](server/TRACKER_PROFILE.md) | keys, every tool's mapping, idempotence |
 | Procedure | [`procedures/connector.mcp.microsoft-365-desk.md`](procedures/connector.mcp.microsoft-365-desk.md) | the Entra application, the mailbox's RBAC scope, the Azure Bot, the Teams app |
-| Teams app | [`teams/manifest.json`](teams/manifest.json) | a Teams app manifest (v1.16) template: the bot and the RSC permission. Not part of the packed plugin (only what `contents` declares is) |
+| Teams app | [`teams/manifest.json`](teams/manifest.json), [`teams/build_app.py`](teams/build_app.py) | a Teams app manifest (v1.16) template — the bot and the RSC permission — and the script that fills it and zips it with its two icons (`server/tests/test_teams_app.py`). Not part of the packed plugin (only what `contents` declares is) |
 
 ```sh
 tranibor plugin validate plugins/microsoft-365-desk

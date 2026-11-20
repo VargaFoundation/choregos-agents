@@ -100,10 +100,12 @@ Entra — an Entra grant is tenant-wide and adds to the scoped roles, so every m
 
 **The Teams app, for Teams.**
 
-8. Take `teams/manifest.json` from the plugin's repository (it is not part of the installed plugin),
-   replace each `<client id>` with the client id and the developer fields with your organisation's, and
-   add two icons beside it: `color.png` (192 × 192) and `outline.png` (32 × 32, white on transparent).
-   Zip the three files. The manifest declares the bot (scope `team`) and one resource-specific permission,
+8. Build the app package from the plugin's repository (`teams/` is not part of the installed plugin):
+   `python teams/build_app.py --client-id <client id> --developer "<your organisation>" --website
+   https://<your site> -o it-desk.zip`. It fills the manifest's placeholders (refusing an id that is not a
+   GUID, a site that is not `https://`, any placeholder left) and adds the two icons Teams asks for,
+   `color.png` (192 × 192) and `outline.png` (32 × 32, white on transparent) — generated, unless you put
+   your own beside the script. The manifest declares the bot (scope `team`) and one resource-specific permission,
    `ChannelMessage.Read.Group`: the application reads the messages of the teams the app is installed in,
    and nothing else.
 9. Teams admin center: allow custom apps for the people who install it, and allow group owners to consent
