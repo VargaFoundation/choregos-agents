@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The seeded, in-memory purchasing system: the only backend this version serves.
+"""The seeded, in-memory purchasing system, the backend of the tests, the demo and the platform's evals.
 
 `PURCHASING_FAKE=1` switches the server to it (`servers/purchasing.yaml`, `fake.env`); `PURCHASING_FAKE_SCENE`
 picks the data it starts with. The companies, people and numbers are invented. The clock is fixed
@@ -274,7 +274,7 @@ class FakePurchasing:
         except KeyError:
             raise NotFound(f"no supplier {supplier_id}") from None
 
-    async def create_supplier(self, new: NewSupplier) -> Supplier:
+    async def create_supplier(self, new: NewSupplier, *, action_key: str | None = None) -> Supplier:
         self._supplier_seq += 1
         supplier = Supplier(
             id=f"SUP-{self._supplier_seq:04d}", created_at=_STAMP, updated_at=_STAMP, **new.model_dump()
@@ -282,6 +282,9 @@ class FakePurchasing:
         self.suppliers[supplier.id] = supplier
         self.writes.append(f"create_supplier {supplier.id}")
         return supplier.model_copy(deep=True)
+
+    async def supplier_created_by(self, action_key: str) -> Supplier | None:
+        return None  # the fake's memory is the process's, which `tools.py` already consults
 
     async def update_supplier(self, supplier_id: str, changes: dict[str, Any]) -> Supplier:
         current = await self.get_supplier(supplier_id)
@@ -329,7 +332,7 @@ class FakePurchasing:
         except KeyError:
             raise NotFound(f"no contract {contract_id}") from None
 
-    async def add_contract_note(self, contract_id: str, text: str) -> Note:
+    async def add_contract_note(self, contract_id: str, text: str, *, action_key: str | None = None) -> Note:
         contract = await self.get_contract(contract_id)
         self._note_seq += 1
         note = Note(id=f"NOTE-{self._note_seq:04d}", text=text, created_at=_STAMP)
@@ -339,7 +342,9 @@ class FakePurchasing:
 
     # --- purchase requests ----------------------------------------------------------------------------
 
-    async def create_purchase_request(self, new: NewPurchaseRequest) -> PurchaseRequest:
+    async def create_purchase_request(
+        self, new: NewPurchaseRequest, *, action_key: str | None = None
+    ) -> PurchaseRequest:
         self._request_seq += 1
         request = PurchaseRequest(id=f"PR-{self._request_seq:04d}", created_at=_STAMP, **new.model_dump())
         self.requests[request.id] = request

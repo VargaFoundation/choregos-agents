@@ -6,6 +6,7 @@ license = "Apache-2.0"
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "GRAAL.SYSTEMS SAS" }]
 dependencies = [
+  "httpx>=0.28,<1",
   "mcp>=2.3,<3",
   "pydantic>=2.10,<3",
   "structlog>=24.4",
@@ -24,6 +25,7 @@ dev = [
   "pyyaml>=6.0",
   "types-pyyaml>=6.0",
   "jinja2>=3.1",
+  "respx>=0.22",
 ]
 
 [build-system]

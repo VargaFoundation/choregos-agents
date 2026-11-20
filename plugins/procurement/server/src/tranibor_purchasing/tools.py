@@ -9,7 +9,8 @@ backend is live here:
   comes from the agent). A write without one is refused. The same key with the same call returns the first
   result and writes nothing; the same key with another call is a conflict. The memory lives in the process
   (it is the platform that replays a call within an action, not days later); a failed write is not
-  remembered, so a retry runs it again.
+  remembered, so a retry runs it again. A backend that can hold a reference of its own (Odoo) also receives the
+  key for the three writes whose replay would create a second record, and answers a replay after a restart.
 - **No bank detail.** Nothing here takes or returns one; `refuse_bank_details` (app.py, on every call) and the
   closed list of supplier fields keep it that way.
 - **Duplicates.** A supplier is not created when an active one has the same registration number in the
@@ -292,6 +293,10 @@ class PurchasingTools:
         new = NewSupplier.model_validate(clean)
 
         async def perform() -> dict[str, Any]:
+            assert action_key is not None  # `_write` refused its absence
+            replayed = await self.backend.supplier_created_by(action_key)
+            if replayed is not None:  # a replay after a restart: the record exists, say what the first call said
+                return {"supplier_id": replayed.id, "supplier": replayed.model_dump(mode="json"), "created": True}
             registration = normalise_registration(new.registration_number) if new.registration_number else None
             duplicates = await self._duplicates(new.name, new.country, registration)
             if duplicates:
@@ -299,7 +304,7 @@ class PurchasingTools:
                     f"duplicate_supplier: an active supplier already has this identity ({', '.join(duplicates)}); "
                     "use it, or update it, instead of creating another"
                 )
-            supplier = await self.backend.create_supplier(new)
+            supplier = await self.backend.create_supplier(new, action_key=action_key)
             return {"supplier_id": supplier.id, "supplier": supplier.model_dump(mode="json"), "created": True}
 
         return await self._write("create_supplier", action_key, clean, perform)
@@ -362,7 +367,7 @@ class PurchasingTools:
         body = _text(text, "text")
 
         async def perform() -> dict[str, Any]:
-            note = await self.backend.add_contract_note(cid, body)
+            note = await self.backend.add_contract_note(cid, body, action_key=action_key)
             return {"contract_id": cid, "note_id": note.id, "created_at": note.created_at}
 
         return await self._write("add_contract_note", action_key, {"contract_id": cid, "text": body}, perform)
@@ -426,7 +431,7 @@ class PurchasingTools:
                 contract = await self.backend.get_contract(cid)
                 if contract.supplier_id != sid:
                     raise Conflict(f"contract {cid} belongs to {contract.supplier_id}, not to {sid}")
-            request = await self.backend.create_purchase_request(new)
+            request = await self.backend.create_purchase_request(new, action_key=action_key)
             return {
                 "request_id": request.id,
                 "status": request.status,

@@ -3,8 +3,9 @@
 # One server named after what it does, a fixed profile of eleven operations (server/PROFILE.md), and
 # replaceable backends. Source: ../server. A tool not listed in `operations` is refused by the platform.
 #
-# This version serves NO real backend: `odoo` is what the configuration offers and the server refuses to
-# start on it until the backend arrives with a later version (PA-06). Only the fake below serves the profile.
+# One real backend ships: `odoo` (Odoo 19 and 20, through the vendor's JSON-2 API with an API key; PA-06). Which
+# operations it maps and which it does not support is written in server/PROFILE.md. The fake below serves the
+# platform's own evaluations.
 name: purchasing
 # CI fills the digest when it builds, signs and publishes the image; the zeros are never pullable.
 image: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
@@ -24,7 +25,7 @@ config_schema:
     backend:
       type: string
       enum: [odoo]
-      description: The purchasing system behind the profile. This version of the server cannot yet start on odoo; its backend arrives with a later version.
+      description: The purchasing system behind the profile. Odoo 19 or 20 (Purchase, Purchase Agreements and Contacts installed) is the one backend this version serves.
       x-env: PURCHASING_BACKEND
     base_url:
       type: string
@@ -34,11 +35,11 @@ config_schema:
       x-env: PURCHASING_BASE_URL
     database:
       type: string
-      description: The database to use, where the system hosts several (odoo).
+      description: The Odoo database, sent as the X-Odoo-Database header; leave it empty where the host name alone selects the database.
       x-env: PURCHASING_DATABASE
     username:
       type: string
-      description: The dedicated integration user, holding the least rights that serve the profile and never an administrator.
+      description: The dedicated integration user, holding the least rights that serve the profile and never an administrator. Odoo authenticates by the API key; the name is kept for the audit trail and for the integration's own log.
       x-env: PURCHASING_USERNAME
     api_key:
       type: string

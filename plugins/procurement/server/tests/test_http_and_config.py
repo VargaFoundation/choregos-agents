@@ -94,16 +94,47 @@ def test_insecure_dev_runs_the_fake_without_a_token() -> None:
         assert _call(client, {}, supplier_id="SUP-0001") == 200
 
 
-def test_odoo_is_what_the_configuration_offers_and_the_server_cannot_start_on_it_yet() -> None:
-    env = {
-        "PURCHASING_BACKEND": "odoo",
-        "PURCHASING_BASE_URL": "https://purchasing.example.com",
-        "PURCHASING_USERNAME": "integration",
-        "PURCHASING_API_KEY": "not-a-real-key",
-        "CHOREGOS_SERVER_TOKEN": TOKEN,
-    }
-    with pytest.raises(ValueError, match=r"later version of the plugin \(PA-06\)"):
-        build_app(Settings.from_env(env))
+def test_odoo_starts_the_server_without_opening_a_connection() -> None:
+    import respx
+
+    from .odoo_script import KEY, ODOO_ENV
+
+    with respx.mock(assert_all_called=False) as router:  # any request would raise: the mock has no route
+        app = build_app(Settings.from_env(ODOO_ENV))
+    assert not router.calls and app.state.runtime.backend.name == "odoo" and app.state.runtime.fake is None
+    settings = Settings.from_env(ODOO_ENV)
+    assert KEY not in repr(settings) and KEY not in settings.model_dump_json()
+    assert settings.base_url == "https://odoo.example.test"  # no trailing slash, whatever was typed
+    assert (
+        Settings.from_env({**ODOO_ENV, "PURCHASING_BASE_URL": "https://odoo.example.test/"}).base_url
+        == settings.base_url
+    )
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"PURCHASING_BASE_URL": "http://odoo.example.test"}, "https URL"),
+        ({"PURCHASING_BASE_URL": ""}, "https URL"),
+        ({"PURCHASING_BASE_URL": "https://user:pw@odoo.example.test"}, "no credential"),
+        ({"PURCHASING_BASE_URL": "https://odoo.example.test/?db=x"}, "no credential, query or fragment"),
+        ({"PURCHASING_USERNAME": ""}, "PURCHASING_USERNAME"),
+        ({"PURCHASING_API_KEY": ""}, "PURCHASING_API_KEY"),
+    ],
+)
+def test_an_incomplete_or_unsafe_odoo_connection_refuses_to_start(change: dict[str, str], message: str) -> None:
+    from .odoo_script import ODOO_ENV
+
+    with pytest.raises(ValueError, match=message):
+        Settings.from_env({**ODOO_ENV, **change})
+
+
+def test_the_database_is_optional_and_no_other_backend_than_the_listed_ones_starts() -> None:
+    from .odoo_script import ODOO_ENV
+
+    assert Settings.from_env({k: v for k, v in ODOO_ENV.items() if k != "PURCHASING_DATABASE"}).database is None
+    with pytest.raises(ValueError, match="unknown"):
+        Settings.from_env({**ODOO_ENV, "PURCHASING_BACKEND": "sap"})
 
 
 @pytest.mark.parametrize(

@@ -13,6 +13,8 @@ from mcp_types import CallToolResult
 from tranibor_purchasing.app import Runtime, build_server
 from tranibor_purchasing.config import Settings
 
+from .odoo_script import odoo, script  # noqa: F401  (the fixtures of the Odoo backend's tests)
+
 
 class Mcp:
     """Calls a tool in-process through the MCP protocol and returns its structured result.

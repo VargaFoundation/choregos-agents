@@ -6,9 +6,10 @@ The platform fills these variables from the plugin's `config_schema` and its sea
 one (`PURCHASING_FAKE_SCENE` picks its data), so tests and demos need no account. The fake is never a
 configuration value: only `fake.env` of the descriptor switches it on.
 
-**This version serves no real backend.** `PURCHASING_BACKEND=odoo` is the one value the configuration
-accepts, and the server refuses to start on it, saying the Odoo backend arrives with a later version
-(PA-06). Until then only the fake serves the profile.
+`PURCHASING_BACKEND=odoo` is the one value the configuration accepts: the Odoo backend (`backends/odoo.py`,
+PA-06) then needs `PURCHASING_BASE_URL` (https), `PURCHASING_USERNAME` and the secret `PURCHASING_API_KEY`;
+`PURCHASING_DATABASE` is optional (sent as the `X-Odoo-Database` header). Any other value, or none, refuses to
+start. Reading the settings opens no connection.
 
 `CHOREGOS_SERVER_TOKEN` is the platform's (ADR 0096): the bearer token it presents on every call. The
 server refuses to start without it, except on the fake with `CHOREGOS_SERVER_INSECURE_DEV=1` said
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, SecretStr, model_validator
 
@@ -26,7 +28,7 @@ from .backends.fake import scene_name
 
 #: The backends the descriptor's `config_schema` offers, and the ones this version can run.
 BACKENDS = ("odoo",)
-SERVED_BACKENDS: tuple[str, ...] = ()
+SERVED_BACKENDS: tuple[str, ...] = ("odoo",)
 
 
 class Settings(BaseModel):
@@ -41,6 +43,11 @@ class Settings(BaseModel):
     server_token: SecretStr | None = None
     #: `CHOREGOS_SERVER_INSECURE_DEV=1`: no token, accepted on the fake only.
     insecure_dev: bool = False
+    #: The real system's connection (odoo): the only host the server reaches is the one in `base_url`.
+    base_url: str | None = None
+    database: str | None = None
+    username: str | None = None
+    api_key: SecretStr | None = None
 
     @model_validator(mode="after")
     def _a_backend_this_version_serves(self) -> Settings:
@@ -53,11 +60,22 @@ class Settings(BaseModel):
                 f"PURCHASING_BACKEND={self.backend!r} is unknown (the backends are: {', '.join(BACKENDS)})"
             )
         if self.backend not in SERVED_BACKENDS:
-            raise ValueError(
-                f"PURCHASING_BACKEND={self.backend} is not served by this version: the {self.backend} backend arrives "
-                "with a later version of the plugin (PA-06); only the seeded fake runs today"
-            )
+            raise ValueError(f"PURCHASING_BACKEND={self.backend} is not served by this version")
+        if self.backend == "odoo":
+            self._odoo_connection()
         return self
+
+    def _odoo_connection(self) -> None:
+        """Refuse an incomplete or unsafe connection before anything listens."""
+        parts = urlsplit(self.base_url or "")
+        if parts.scheme != "https" or not parts.hostname:
+            raise ValueError("PURCHASING_BASE_URL must be an https URL, such as https://purchasing.example.com")
+        if parts.username or parts.password or parts.query or parts.fragment:
+            raise ValueError("PURCHASING_BASE_URL must hold no credential, query or fragment")
+        if not self.username:
+            raise ValueError("PURCHASING_USERNAME is not set (the dedicated integration user)")
+        if self.api_key is None or not self.api_key.get_secret_value():
+            raise ValueError("PURCHASING_API_KEY is not set (the integration user's API key)")
 
     def require_server_token(self) -> SecretStr | None:
         """The token every call must carry; `None` only on the fake in explicit insecure dev mode."""
@@ -80,8 +98,13 @@ class Settings(BaseModel):
         if source.get("PURCHASING_FAKE", "") in ("1", "true", "yes"):
             scene = scene_name(source.get("PURCHASING_FAKE_SCENE") or "default")
             return cls(fake=True, scene=scene, port=port, server_token=server_token, insecure_dev=insecure_dev)
+        raw_key = source.get("PURCHASING_API_KEY")
         return cls(
             backend=source.get("PURCHASING_BACKEND") or None,
+            base_url=(source.get("PURCHASING_BASE_URL") or "").rstrip("/") or None,
+            database=source.get("PURCHASING_DATABASE") or None,
+            username=source.get("PURCHASING_USERNAME") or None,
+            api_key=SecretStr(raw_key) if raw_key else None,
             port=port,
             server_token=server_token,
             insecure_dev=insecure_dev,

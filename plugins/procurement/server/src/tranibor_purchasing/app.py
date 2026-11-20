@@ -33,6 +33,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from . import __version__
 from .backends.base import Backend
 from .backends.fake import FakePurchasing
+from .backends.odoo import OdooPurchasing
 from .config import Settings
 from .errors import PurchasingError, Refused
 from .profile import refuse_bank_details
@@ -120,15 +121,18 @@ class BearerGuard:
 
 
 class Runtime:
-    """What one process holds: the settings, the backend (the fake in fake mode) and the tools."""
+    """What one process holds: the settings, the backend (the fake, or the configured one) and the tools."""
 
     def __init__(self, settings: Settings, backend: Backend | None = None) -> None:
         self.settings = settings
         self.fake: FakePurchasing | None = None
         if backend is None:
-            if not settings.fake:  # Settings refuses to exist for a backend this version does not serve
+            if settings.fake:
+                self.fake = backend = FakePurchasing(settings.scene)
+            elif settings.backend == "odoo":  # Settings refuses to exist for any other backend
+                backend = OdooPurchasing.from_settings(settings)
+            else:
                 raise ValueError("no backend to serve the profile")
-            self.fake = backend = FakePurchasing(settings.scene)
         self.backend = backend
         self.tools = PurchasingTools(backend)
 
@@ -329,7 +333,14 @@ def main() -> None:
     configure_logging()
     try:
         settings = Settings.from_env()
-        log.info("starting", fake=settings.fake, backend=settings.backend, scene=settings.scene, port=settings.port)
+        log.info(
+            "starting",
+            fake=settings.fake,
+            backend=settings.backend,
+            scene=settings.scene,
+            port=settings.port,
+            integration_user=settings.username,
+        )
         app = build_app(settings)
     except ValueError as refused:
         log.error("refused_to_start", reason=str(refused))

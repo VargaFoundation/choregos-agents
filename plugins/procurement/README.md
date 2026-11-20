@@ -15,8 +15,8 @@ the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code 
 | Skills | [`skills/reading-supplier-offers`](skills/reading-supplier-offers/SKILL.md), [`skills/writing-comparison-memos`](skills/writing-comparison-memos/SKILL.md) | the output contract and rules of each agent |
 | Template | [`templates/procurement-sourcing`](templates/procurement-sourcing/README.md) | workflow `offer-comparison`: extract, read, compute, memo, tier, award |
 | Template | [`templates/procurement-operations`](templates/procurement-operations/README.md) | workflow `supplier-onboarding`: extract, read, measure, review, create the record under approval; workflow `purchase-request`: qualify a request and route it, nothing opened; needs the connector `purchasing` |
-| Server | [`servers/purchasing.yaml`](servers/purchasing.yaml), source [`server/`](server/PROFILE.md) | the MCP server `purchasing`: eleven operations of a fixed profile, served by a seeded fake only |
-| Procedure | [`procedures/connector.mcp.purchasing.md`](procedures/connector.mcp.purchasing.md) | how the server is connected (today: the fake, no real backend) |
+| Server | [`servers/purchasing.yaml`](servers/purchasing.yaml), source [`server/`](server/PROFILE.md) | the MCP server `purchasing`: eleven operations of a fixed profile, served by Odoo 19 and 20 and by a seeded fake |
+| Procedure | [`procedures/connector.mcp.purchasing.md`](procedures/connector.mcp.purchasing.md) | how the server is connected to Odoo: a dedicated user, the least rights, an API key |
 | Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml), [`evals/supplier-file-checker.yaml`](evals/supplier-file-checker.yaml), [`evals/request-qualifier.yaml`](evals/request-qualifier.yaml) | instruction checks, and live cases each, with invented suppliers and amounts |
 
 ## What version 0.2.0 adds: the server `purchasing`
@@ -29,11 +29,15 @@ writes (`create_supplier`, `update_supplier`, `archive_supplier`, `add_contract_
 returns a bank detail. The profile is fixed in [`server/PROFILE.md`](server/PROFILE.md).
 
 - **Proves**: the profile end to end on a seeded, in-memory fake, in three scenes; that the descriptor and the
-  served tools agree; the idempotency, compensation and no-bank-detail rules, by tests that fail without them.
-- **Does not prove**: anything against a real purchasing system. **No real backend ships in 0.2.0.** The
-  configuration offers `backend: odoo` and the server refuses to start on it, saying the backend arrives with
-  a later version; only the fake (switched on by the descriptor's `fake.env`, never by configuration) serves.
-  The idempotency memory is the process's, not durable.
+  served tools agree; the idempotency, compensation and no-bank-detail rules, by tests that fail without them; and
+  the **Odoo backend** (Odoo 19 and 20, through the vendor's JSON-2 API and an API key) on hand-written exchanges:
+  every mapped operation, its error paths and its paging, typed filters, the replay of a write after a restart, no
+  bank detail on any request, no key or traceback in any error.
+- **Does not prove**: anything against a running Odoo: the live proof is the core's S84-14 on a container. What
+  Odoo cannot say is *not supported* and written in [`server/PROFILE.md`](server/PROFILE.md): an agreement has no
+  category, a contract has no value and is the same record as an agreement, a unit of measure is written in a
+  line's name, and on Odoo 20 a supplier's registration number is not supported. Odoo 18 and older are not served.
+  The idempotence that survives a restart does not cover two identical calls racing on two replicas.
 
 ## What version 0.2.0 adds: supplier onboarding
 
@@ -108,8 +112,9 @@ suppliers, What this memo does not cover.
 - **No injection detector.** The agents are told to treat an offer as data and to report an instruction,
   but the protection is mechanical: no write outside the platform, number gates that bound what the memo
   can claim, no credential and no network in the agents, and a person who reads the memo.
-- **Nothing is written outside the platform.** The template of 0.1.0 has no governed action. The server of
-  0.2.0 has writes, each held for a person, but serves only a fake: no third-party system is written to.
+- **Nothing is written outside the platform without a person.** The template of 0.1.0 has no governed action. The
+  server of 0.2.0 has writes to Odoo, each held for a person and re-authenticated; the first version of the
+  backend has had no live run.
 
 ## Checks
 

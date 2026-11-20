@@ -38,3 +38,10 @@ class BackendError(PurchasingError):
     """The purchasing system answered with an error or could not be reached."""
 
     code = "backend_error"
+
+
+class NotSupported(PurchasingError):
+    """The profile asks for something this backend cannot serve honestly (the purchasing system has no such
+    record or field). The backend says so and does not approximate; nothing was written."""
+
+    code = "not_supported"

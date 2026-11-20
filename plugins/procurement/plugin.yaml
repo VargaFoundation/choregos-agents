@@ -2,10 +2,10 @@
 # The procurement plugin (core ADR 0198): the two agents of the comparison of supplier offers. One copies
 # what the offers say into a structure, the other writes the memo from numbers a deterministic step measured.
 # The template `procurement-sourcing` runs them; the job image that extracts and computes comes in a later change.
-# 0.2.0 adds the MCP server `purchasing` (a fixed profile of eleven operations, served by a seeded fake only:
-# its first real backend comes with a later version) and the procedure that connects it. It also adds the agent
-# `supplier-file-checker` and the template `procurement-operations`, whose workflow `supplier-onboarding` creates
-# a supplier record under approval (the plugin's first governed write).
+# 0.2.0 adds the MCP server `purchasing` (a fixed profile of eleven operations, served by Odoo 19 and 20 and by a
+# seeded fake) and the procedure that connects it. It also adds the agents `supplier-file-checker`,
+# `request-qualifier` and `renewal-analyst` and the template `procurement-operations`, whose workflows onboard a
+# supplier, qualify a purchase request and run a renewal campaign (the plugin's first governed writes).
 apiVersion: choregos/v1
 kind: Plugin
 metadata:

@@ -6,8 +6,13 @@ A backend maps its own records to the models of `profile.py` and raises `NotFoun
 system. It holds no idempotency of its own here: `tools.py` answers a replayed `action_key` before the
 backend is called. A backend must neither take nor return a bank detail.
 
-The only backend this version ships is the seeded fake (`fake.py`); a real one (Odoo) arrives with a later
-version (PA-06) and implements this same protocol.
+Two backends ship: the seeded fake (`fake.py`) and Odoo (`odoo.py`, PA-06). A backend raises `NotSupported`
+for what its system cannot serve honestly, and never approximates.
+
+**Idempotence across restarts.** The three writes whose replay would create a second record (`create_supplier`,
+`add_contract_note`, `create_purchase_request`) receive the platform's `action_key`. A backend whose system can
+hold a reference stores one with the record and looks it up before writing, so a replay after a restart returns
+the first record. The fake keeps no such memory: it lives and dies with the process.
 """
 
 from __future__ import annotations
@@ -46,7 +51,12 @@ class Backend(Protocol):
 
     async def get_supplier(self, supplier_id: str) -> Supplier: ...
 
-    async def create_supplier(self, new: NewSupplier) -> Supplier: ...
+    async def create_supplier(self, new: NewSupplier, *, action_key: str | None = None) -> Supplier: ...
+
+    async def supplier_created_by(self, action_key: str) -> Supplier | None:
+        """The supplier an earlier `create_supplier` made under this `action_key`, or `None`: the answer to a
+        replay after a restart, asked before the duplicate check (which would find that very record)."""
+        ...
 
     async def update_supplier(self, supplier_id: str, changes: dict[str, Any]) -> Supplier:
         """Apply `changes` (keys of `SUPPLIER_FIELDS`, `None` clears an optional one) and return the record."""
@@ -70,9 +80,11 @@ class Backend(Protocol):
 
     async def get_contract(self, contract_id: str) -> Contract: ...
 
-    async def add_contract_note(self, contract_id: str, text: str) -> Note: ...
+    async def add_contract_note(self, contract_id: str, text: str, *, action_key: str | None = None) -> Note: ...
 
-    async def create_purchase_request(self, new: NewPurchaseRequest) -> PurchaseRequest:
+    async def create_purchase_request(
+        self, new: NewPurchaseRequest, *, action_key: str | None = None
+    ) -> PurchaseRequest:
         """A request in the `draft` status: nothing is ordered."""
         ...
 
