@@ -64,7 +64,7 @@ attested. The workflow opens nothing in the purchasing system. The agent must al
 - **Proves**: the workflow's structure (no action, the four gates, the route values, the attested review), and
   the core's real gates on outputs an agent could write, by tests that fail without each guarantee.
 - **Does not prove**: what a model writes, that a route is the right one, or a run (the live evals are not played
-  by CI). An agreement id with a number of ten or more is refused by the number gate (see the template README).
+  by CI). An agreement's id is read as a reference, not an amount (`identifiers: skip`, see the template README).
 
 ## What version 0.1.0 holds
 

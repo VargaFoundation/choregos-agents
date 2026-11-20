@@ -145,7 +145,7 @@ in the purchasing system**: launching a consultation or an order is the buyer's 
   an answer), never guess. An amount that reaches the agent only as an answer is not a field, so the agent
   writes it without digits.
 - **Limits that follow.** The agent writes no threshold of the policy and no figure of an agreement (they are
-  not measured): it cites the policy by the title of its section. An agreement id whose number is ten or more
-  (`FA-0012`) is read by the gate as an unmeasured number and refused, so the proposal goes to a person; the
-  ids of the fake's scenes stay below ten.
+  not measured): it cites the policy by the title of its section. An agreement's id (`FA-0012`) is read as a
+  reference, not an amount (`identifiers: skip`, core S84-16); the price of that is that an amount glued to
+  letters (`EUR-99999`) in the brief is not checked either.
 - **Not proved**: what a model writes, or that the route is right: the evals are live and CI does not play them.

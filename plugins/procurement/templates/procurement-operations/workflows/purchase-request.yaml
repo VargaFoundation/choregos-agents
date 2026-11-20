@@ -94,10 +94,14 @@ transitions:
       - name: outputs_in
         params: { values: { route: [catalogue, framework_agreement, three_quotes, tender] } }
       # Every number of the proposal is one the requester typed.
+      # An agreement's id (`FA-0012`) is a reference, not an amount (core S84-16). The hole it opens stays open
+      # in the free text (`rationale`, the brief): an amount glued to letters (`EUR-99999`) is not checked there,
+      # and the buyer who reviews reads it.
       - name: numbers_measured
         params:
           sources: [fields]
           outputs: [brief_markdown, qualification]
+          identifiers: skip
       # The run must have looked at the agreements, whatever the route: counted in the ledger, not believed.
       - name: tool_called
         params: { tools: [purchasing__list_framework_agreements] }
