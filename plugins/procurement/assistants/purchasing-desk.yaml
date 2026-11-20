@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# The first assistant of this repository (core ADR 0133, ADR 0158): an employee asks in conversation what they may
+# buy and how, the assistant reads the agreements in force and the house policy, and PROPOSES a purchase request
+# that the person confirms with their own right. Nothing is written by the assistant: the server's two read
+# operations only, no memory. The launch is bound at install to a project that runs `purchase-request`.
+apiVersion: choregos/v1
+kind: Assistant
+metadata:
+  name: purchasing-desk
+  display_name: Purchasing desk
+  description: Ask what you may buy and how. The assistant reads the framework agreements in force and the house purchasing policy, and proposes a purchase request that you confirm; a buyer then decides the route. It orders nothing.
+  icon: cart
+agent: purchasing-desk
+tools:
+  # The server's own credential (the purchasing system's integration user): the two reads below, never a write.
+  - need: purchasing
+    operations: [list_framework_agreements, search_suppliers]
+    description: The framework agreements in force and the suppliers of the purchasing system, read only.
+    access: read
+    identity: service
+    required: true
+    satisfied_by: { server: "plugin:procurement/purchasing" }
+knowledge:
+  # The organisation's own purchasing policy, bound to the base it already keeps (ADR 0159): nothing is copied.
+  - name: purchasing_policy
+    bind:
+      description: The organisation's purchasing policy, the base the buyers keep (which categories are bought from a catalogue, from which amount quotes or a tender are required).
+      required: true
+launches:
+  # Requester's fields only: the buyer's `review_note` and `decline_reason` are written by the buyers' forms.
+  - name: purchase_request
+    description: Propose to file a purchase request for the person to confirm, once they have said what they need, the estimated amount with its currency and the date it is needed by. Do not propose it while the amount is missing. Files are handed in the console, not here.
+    input_schema:
+      type: object
+      required: [need]
+      properties:
+        need: { type: string, minLength: 1, title: What is needed }
+        estimated_amount: { type: number, minimum: 0, title: Estimated amount (digits and a decimal point) }
+        currency: { type: string, pattern: "^[A-Z]{3}$", title: Currency (three upper-case letters) }
+        needed_by: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", title: Needed by (YYYY-MM-DD) }
+    required: true
+audience:
+  personal_data: false
+surfaces:
+  console: true
+policy:
+  budget: { per_user_month_usd: 5, per_conversation_usd: 1, per_installation_month_usd: 100 }
+  conversation: { retention_days: 30, max_turns: 40, idle_close_minutes: 120 }
+  data: { classification: internal }
+evals: [evals/purchasing-desk-conversations.yaml]
