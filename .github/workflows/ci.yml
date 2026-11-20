@@ -14,7 +14,7 @@ env:
   # TEMPORARY, integration branch of the procurement plugin only (core PLAN-2026-11-20-procurement §4):
   # a commit of the core's branch that carries metadata.attachments, the reserved input and the gate
   # output_sections, and the job commands of lot 2 (S84-03 to S84-15). Story PA-04 moves this and publish.yml together to the release that ships them.
-  CHOREGOS_REF: f97f6f69e7881f3a345480a064961a7e7b7a9121
+  CHOREGOS_REF: a85348bf830781b08ee12c2bfd51e1edb90a8d04
 
 jobs:
   servers:

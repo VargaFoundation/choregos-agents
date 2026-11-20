@@ -35,10 +35,11 @@ actors:
   lister:
     type: job
     role: list
-    command: [tranibor-procurement, renewals, --within-days, "90", --max, "50"]
+    command: [tranibor-procurement, renewals, --within-days, "90", --max, "50", --skip-decided]
     image: procurement
     max_minutes: 10
-    tools: [{ connector: purchasing, tools: [list_contracts] }]
+    # `get_contract` reads the notes of a contract that has some: one decided within the window is left out.
+    tools: [{ connector: purchasing, tools: [list_contracts, get_contract] }]
   platform: { type: system }
   buyers: { type: human, group: buyers, sla_hours: 72 }
 states:

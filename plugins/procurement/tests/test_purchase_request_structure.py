@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The guarantees of the workflow `purchase-request` and its agent `request-qualifier`, read from the files (PA-08).
+"""The guarantees of the workflow `purchase-request` and its agent `request-qualifier`, read from the
+files (PA-08).
 
-Nothing here runs the workflow: each test parses `purchase-request.yaml` with the core's own parser and asserts
+Nothing here runs the workflow: each test parses `purchase-request.yaml` with the core's own parser and
+asserts
 a guarantee by name and parameters, or plays the core's real gates on an output an agent could write, so that
 removing a guarantee turns this repository's CI red before the core ships the archive. The tests run from a
 core checkout, as the `templates` job does:
@@ -69,7 +71,8 @@ def _proposal(**changes: Any) -> dict[str, Any]:
 
 
 def _score(outputs: dict[str, Any], *, fields: dict[str, Any], calls: list[str]) -> dict[str, str]:
-    """The gates of `t-qualify` that refuse `outputs`, with their detail: the core's own gates, as the engine plays them."""
+    """The gates of `t-qualify` that refuse `outputs`, with their detail: the core's own gates, as the engine
+    plays them."""
     from tranibor_contracts import StageOutputs, StageResult, StageStatus
     from tranibor_core.gates import GateContext, evaluate
 
@@ -114,7 +117,8 @@ def test_the_workflow_opens_nothing_in_the_purchasing_system() -> None:
     raw = _raw()
     assert [t["id"] for t in raw["transitions"] if "action" in t] == []
     assert not [name for name, actor in raw["actors"].items() if actor["type"] == "job"]
-    code = [ln for ln in WORKFLOW_FILE.read_text(encoding="utf-8").splitlines() if not ln.lstrip().startswith("#")]
+    lines = WORKFLOW_FILE.read_text(encoding="utf-8").splitlines()
+    code = [ln for ln in lines if not ln.lstrip().startswith("#")]
     assert not [ln for ln in code if "action:" in ln or "effects:" in ln or "connector.call" in ln]
 
 

@@ -59,7 +59,7 @@ platform's evals run on. The configuration's `backend` is an enum of the backend
 A **supplier**: `id`, `name`, `registration_number`, `vat_number`, `country`, `email`, `phone`, `website`,
 `address_line`, `city`, `postal_code`, `categories`, `status` (`active` or `archived`), `archived_reason`,
 `created_at`, `updated_at`. A **contract**: `id`, `supplier_id`, `title`, `category`, `start_date`,
-`end_date`, `currency`, `value`, `notes`. An **agreement**: `id`, `supplier_id`, `title`, `category`,
+`end_date`, `currency`, `value`, `notes`. A **note**: `id`, `text`, `created_at` (an ISO 8601 timestamp, UTC), oldest first. An **agreement**: `id`, `supplier_id`, `title`, `category`,
 `valid_from`, `valid_to`, `currency`, `terms_summary`.
 
 ## Writes (all `human_approval: true`, all take `action_key`)

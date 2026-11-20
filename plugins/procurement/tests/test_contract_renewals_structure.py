@@ -80,7 +80,10 @@ def test_the_campaign_lists_with_the_job_through_one_read_operation_and_a_window
     lister = _campaign().actors["lister"]
     assert lister.type.value == "job" and lister.image == "procurement"
     assert list(lister.command)[:2] == ["tranibor-procurement", "renewals"]
-    assert [(t.connector, list(t.tools)) for t in lister.tools] == [("purchasing", ["list_contracts"])]
+    tools = [(t.connector, list(t.tools)) for t in lister.tools]
+    assert tools == [("purchasing", ["list_contracts", "get_contract"])]
+    # A contract decided last month is not opened again (core S84-17): the flag needs get_contract above.
+    assert "--skip-decided" in lister.command
     assert int(_job_argument("--within-days")) == 90
     properties = _raw(CAMPAIGN_FILE)["metadata"]["inputs"]["properties"]
     assert not {"within_days", "window", "max", "days"} & set(properties), "the window is never a field"
