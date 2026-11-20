@@ -165,7 +165,7 @@ def test_each_plugin_ships_its_template_and_announces_its_connectors() -> None:
     desk = yaml.safe_load((PLUGINS / "microsoft-365-desk" / "plugin.yaml").read_text())
     assert f"templates/{M365}" in desk["contents"]["templates"]
     assert desk["requires"]["org_connectors"] == {"directory": "identity"}, (
-        "the desk connector is the plugin's own server, installed with it; the directory is the organisation's"
+        "the desk connector is the plugin's own server; the directory is the organisation's"
     )
 
 
