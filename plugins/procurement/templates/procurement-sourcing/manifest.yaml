@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: choregos/v1
+kind: Template
+metadata:
+  name: procurement-sourcing
+  version: 0.1.0
+  display: Procurement · comparison of supplier offers
+  description: >-
+    A consultation is a work item: a person hands the supplier offers as files. A job reads them into
+    text, an agent copies what they say into a structure, a job computes every total and checks the
+    suppliers' own arithmetic, an agent writes a memo that ranks by the measured total, lists what
+    differs and recommends nobody, and a person awards, attested, or sends it back, or closes it with
+    no award. Above a threshold written in the workflow, the committee decides. Nothing is written
+    outside the platform.
+requires:
+  connectors:
+    tracker: internal
+defaults:
+  workflows: [./workflows/offer-comparison.yaml]
+  default_workflow: offer-comparison
+  # A closed sandbox: supplier documents are confidential and untrusted.
+  policy: preset:regulated
+  # The agents `offer-reader` and `sourcing-analyst` and their skills come with the plugin itself.
+inputs: []
+steps: []

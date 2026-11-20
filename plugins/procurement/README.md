@@ -9,13 +9,15 @@ the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code 
 | Agent | [`agents/offer-reader.yaml`](agents/offer-reader.yaml) | catalogue role `structure`: copies the offers into `offers_structured` |
 | Agent | [`agents/sourcing-analyst.yaml`](agents/sourcing-analyst.yaml) | catalogue role `compare`: writes `comparison_memo_markdown` |
 | Skills | [`skills/reading-supplier-offers`](skills/reading-supplier-offers/SKILL.md), [`skills/writing-comparison-memos`](skills/writing-comparison-memos/SKILL.md) | the output contract and rules of each agent |
+| Template | [`templates/procurement-sourcing`](templates/procurement-sourcing/README.md) | workflow `offer-comparison`: extract, read, compute, memo, tier, award |
 | Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml) | instruction checks, and six live cases each, with invented suppliers and amounts |
 
 ## What version 0.1.0 holds
 
-The two agents, their two skills and their evals. Nothing runs them yet: the template that wires them
-(extraction, the offer-reader, a computing step, the sourcing-analyst, a person's decision) and the job
-image that extracts and computes come in later changes. The `core` floor `0.28.0` is **provisional**: it
+The two agents, their two skills, their evals and the template `procurement-sourcing` that wires them
+(extraction, the offer-reader, a computing step, the sourcing-analyst, a tier, a person's attested
+decision). The job image `procurement` that extracts and computes, and that the template's job steps name,
+comes in a later change. The `core` floor `0.28.0` is **provisional**: it
 stands for the first core release that carries the reserved input `attachments` (core ADR 0197) and is to
 be corrected to that release's version when the plugin is published.
 

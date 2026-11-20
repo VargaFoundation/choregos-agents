@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # The procurement plugin (core ADR 0198): the two agents of the comparison of supplier offers. One copies
 # what the offers say into a structure, the other writes the memo from numbers a deterministic step measured.
-# The template that runs them, and the job image that extracts and computes, come in later changes.
+# The template `procurement-sourcing` runs them; the job image that extracts and computes comes in a later change.
 apiVersion: choregos/v1
 kind: Plugin
 metadata:
@@ -23,4 +23,5 @@ requires:
 contents:
   agents: [agents/offer-reader.yaml, agents/sourcing-analyst.yaml]
   skills: [skills/reading-supplier-offers, skills/writing-comparison-memos]
+  templates: [templates/procurement-sourcing]
   evals: [evals/offer-reader.yaml, evals/sourcing-analyst.yaml]

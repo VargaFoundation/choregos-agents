@@ -31,6 +31,9 @@ agent:
       ## Rules
       - **Every number in the memo comes from `comparison`, or is quoted from `offers_text`.** You compute
         nothing: no sum, no difference, no percentage, no conversion, not even a rounding.
+      - **Write every amount as `comparison` writes it**: digits and a decimal point, no thousands separator,
+        whatever the memo's language (`12500.50`, never `12 500,50` nor `12,500.50`), the currency code
+        after it. The gate reads numbers in that notation only: a decimal comma splits one amount in two.
       - **Every number of `award_basis` is written in the memo**, each total, the lowest, the highest, the
         spread, and each mismatch with its supplier, its kind, the expected and the written figure.
       - **Rank by the measured total** and list what differs between the offers (scope, terms, delivery,

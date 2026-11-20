@@ -1,0 +1,456 @@
+# SPDX-License-Identifier: Apache-2.0
+# The comparison of supplier offers (core ADRs 0197 and 0198, plan Decision 4). A person hands the offers
+# as files; a job turns them into text, an agent copies what they say into a structure, a job computes,
+# an agent writes the memo from the computed numbers, a job derives the approval tier from a threshold
+# written HERE (never a field: a field is editable by the person the threshold constrains, and a workflow
+# version is pinned to the work item when it starts), and a person awards, attested.
+#
+# - The agents never compute. The reader copies, the job multiplies, adds and ranks, the analyst writes
+#   from the job's numbers; `numbers_measured` refuses any number that is not in a measured source.
+# - An arithmetic error in an offer does not block: it is counted in `award_basis`, and `must_quote`
+#   forces the memo to write it.
+# - Nothing is written outside the platform. No OCR: a scanned offer counts in `files_unreadable` and
+#   stops at a person.
+# - A send-back lands on `computed`, where the analyst rewrites with the person's `human_feedback`.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: offer-comparison
+  version: 1
+  description: Supplier offers handed as files, read into a structure, compared on measured numbers, written up as a memo that recommends nobody, and awarded by a person who attests it.
+  catalogue:
+    title: Compare supplier offers
+    summary: Hand the offers of a consultation as files. Every total is computed by a job, the memo ranks by it and lists what differs, and a person awards, attested.
+    tags: [procurement, sourcing]
+  attachments: { accept: [pdf, docx, xlsx, csv], min: 2, max: 20 }
+  inputs:
+    type: object
+    required: [currency]
+    properties:
+      currency: { type: string, pattern: "^[A-Z]{3}$", title: Currency of the consultation (three upper-case letters) }
+      number_format:
+        type: string
+        enum: [auto, decimal_comma, decimal_point]
+        default: auto
+        title: How the offers write numbers
+      # Written by the award and no-award forms of the deciding groups. A value typed when the work item is
+      # opened is a draft: the decider's form replaces it, under the decider's attestation.
+      awarded_supplier: { type: string, title: Awarded supplier }
+      rationale: { type: string, title: Why this supplier }
+      no_award_reason: { type: string, title: Why nobody is awarded }
+initial: received
+actors:
+  extractor: { type: job, role: extract, command: [tranibor-procurement, extract], image: procurement, max_minutes: 15 }
+  reader: { type: agent, role: structure, agent: offer-reader, max_turns: 20, max_minutes: 15 }
+  calculator: { type: job, role: compare, command: [tranibor-procurement, compare], image: procurement, max_minutes: 5 }
+  analyst: { type: agent, role: compare, agent: sourcing-analyst, max_turns: 20, max_minutes: 15 }
+  tierer: { type: job, role: tier, command: [tranibor-procurement, tier, --committee-from, "50000"], image: procurement, max_minutes: 5 }
+  buyer: { type: human, group: buyers, sla_hours: 48 }
+  committee: { type: human, group: purchasing-committee, sla_hours: 72 }
+  platform: { type: system }
+states:
+  received: { display: Offers received }
+  extracted: { display: Offers read into text }
+  structured: { display: Offers structured }
+  computed: { display: Totals computed }
+  memo_ready: { display: Memo written }
+  tiered: { display: Approval tier set }
+  awaiting_buyer: { display: The buyer decides, kind: wait }
+  awaiting_committee: { display: The committee decides, kind: wait }
+  awarded: { display: Awarded, terminal: true }
+  not_awarded: { display: Not awarded, terminal: true }
+  needs_human: { display: Needs a human, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  # `files_unreadable` counts a scan, an encrypted file or a failed conversion: there is no OCR, so any goes
+  # to a person at once, as does a file cut short.
+  - id: t-extract
+    from: received
+    to: extracted
+    by: extractor
+    inputs: [attachments]
+    outputs: [offers_text]
+    output_types: { offers_text: json }
+    gates:
+      - outputs_present
+      - name: evidence_facts
+        params:
+          keys: [files_read, files_unreadable, files_truncated]
+          min: { files_read: 2 }
+          max: { files_unreadable: 0, files_truncated: 0 }
+          measured_only: true
+    on_fail: { to: needs_human, max_attempts: 1, escalate_to: needs_human }
+
+  # The schema is the one of the job image (`offers_structured.schema.json`, a currency per supplier);
+  # every number the reader wrote must be one the extracted text holds.
+  - id: t-read
+    from: extracted
+    to: structured
+    by: reader
+    inputs: [offers_text]
+    outputs: [offers_structured]
+    output_types: { offers_structured: json }
+    gates:
+      - name: output_schema
+        params:
+          schemas:
+            offers_structured:
+              {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://tranibor.dev/schemas/procurement/offers_structured.schema.json",
+                "title": "offers_structured",
+                "description": "The offers of a request, read by an agent: one entry per supplier, each with its own currency. A number the offer does not state is null, never a default.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "suppliers",
+                  "unassigned_files"
+                ],
+                "properties": {
+                  "suppliers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "currency",
+                        "files",
+                        "lines",
+                        "stated_total",
+                        "payment_terms_days",
+                        "delivery_days",
+                        "validity_date",
+                        "exclusions"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "currency": {
+                          "description": "This offer's own currency: three upper-case letters, or null when the offer does not say.",
+                          "oneOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "files": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "label",
+                              "quantity",
+                              "unit",
+                              "unit_price",
+                              "line_total"
+                            ],
+                            "properties": {
+                              "label": {
+                                "type": "string"
+                              },
+                              "quantity": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "unit": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "unit_price": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "line_total": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              }
+                            }
+                          }
+                        },
+                        "stated_total": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "payment_terms_days": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "delivery_days": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "validity_date": {
+                          "description": "An ISO 8601 date, or null.",
+                          "oneOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "exclusions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "unassigned_files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "examples": [
+                  {
+                    "suppliers": [],
+                    "unassigned_files": []
+                  },
+                  {
+                    "suppliers": [
+                      {
+                        "name": "Alderbrook Supply",
+                        "currency": "EUR",
+                        "files": [
+                          "alderbrook-offer.pdf"
+                        ],
+                        "lines": [
+                          {
+                            "label": "Steel bracket",
+                            "quantity": 100,
+                            "unit": "pc",
+                            "unit_price": 12.5,
+                            "line_total": 1250
+                          }
+                        ],
+                        "stated_total": 1250,
+                        "payment_terms_days": 30,
+                        "delivery_days": 14,
+                        "validity_date": "2026-12-31",
+                        "exclusions": [
+                          "Transport"
+                        ]
+                      },
+                      {
+                        "name": "Brightfield Trading",
+                        "currency": null,
+                        "files": [],
+                        "lines": [
+                          {
+                            "label": "Steel bracket",
+                            "quantity": null,
+                            "unit": null,
+                            "unit_price": null,
+                            "line_total": null
+                          }
+                        ],
+                        "stated_total": null,
+                        "payment_terms_days": null,
+                        "delivery_days": null,
+                        "validity_date": null,
+                        "exclusions": []
+                      }
+                    ],
+                    "unassigned_files": [
+                      "scan-only.pdf"
+                    ]
+                  }
+                ]
+              }
+      - name: numbers_measured
+        params: { sources: [offers_text], outputs: [offers_structured] }
+    on_fail: { to: extracted, max_attempts: 2, escalate_to: needs_human }
+
+  # More than one currency, a file no supplier owns or fewer than two suppliers is not a retry: the numbers
+  # cannot be compared, a person decides what to do.
+  - id: t-compute
+    from: structured
+    to: computed
+    by: calculator
+    inputs: [offers_structured]
+    outputs: [comparison, award_basis]
+    output_types: { comparison: json, award_basis: json }
+    gates:
+      - outputs_present
+      - name: evidence_facts
+        params:
+          keys: [suppliers_count, files_unassigned, currencies]
+          min: { suppliers_count: 2 }
+          max: { files_unassigned: 0, currencies: 1 }
+          measured_only: true
+    on_fail: { to: needs_human, max_attempts: 1, escalate_to: needs_human }
+
+  - id: t-memo
+    from: computed
+    to: memo_ready
+    by: analyst
+    inputs: [comparison, award_basis, offers_text, human_feedback]
+    outputs: [comparison_memo_markdown]
+    output_types: { comparison_memo_markdown: markdown }
+    gates:
+      - name: output_sections
+        params:
+          outputs:
+            comparison_memo_markdown:
+              - Summary
+              - Files read
+              - Price comparison
+              - Differences and exclusions
+              - Checks that failed
+              - Questions for the suppliers
+              - What this memo does not cover
+          ordered: true
+      - name: numbers_measured
+        params:
+          sources: [comparison, offers_text]
+          must_quote: [award_basis]
+          outputs: [comparison_memo_markdown]
+    on_fail: { to: computed, max_attempts: 2, escalate_to: needs_human }
+
+  - id: t-tier
+    from: memo_ready
+    to: tiered
+    by: tierer
+    inputs: [award_basis]
+    outputs: [approval_tier, highest_total]
+    gates:
+      - name: outputs_in
+        params: { values: { approval_tier: [standard, committee] } }
+    on_fail: { to: needs_human, max_attempts: 1, escalate_to: needs_human }
+
+  # The conditional transition comes first: the first whose `when` holds is taken, the one without is the default.
+  - id: t-route-committee
+    from: tiered
+    to: awaiting_committee
+    by: platform
+    when: { approval_tier: committee }
+  - id: t-route-buyer
+    from: tiered
+    to: awaiting_buyer
+    by: platform
+
+  - id: t-award-buyer
+    from: awaiting_buyer
+    to: awarded
+    by: buyer
+    task:
+      title: Award the consultation
+      instructions: >-
+        Read the memo and the offers. Name the supplier you award to and why. The memo ranks by price
+        and recommends nobody; the choice is yours. Send it back with your questions to have the memo
+        rewritten, or close the consultation without an award.
+      form:
+        type: object
+        required: [awarded_supplier, rationale]
+        properties:
+          awarded_supplier: { type: string, minLength: 1, title: Awarded supplier }
+          rationale: { type: string, minLength: 1, title: Why this supplier }
+      attest: I award this consultation on the basis of the files and the memo I read.
+    on_reject: computed
+  - id: t-no-award-buyer
+    from: awaiting_buyer
+    to: not_awarded
+    by: buyer
+    task:
+      title: Close without an award
+      instructions: Say why no supplier is awarded this consultation.
+      form:
+        type: object
+        required: [no_award_reason]
+        properties:
+          no_award_reason: { type: string, minLength: 1, title: Why nobody is awarded }
+
+  - id: t-award-committee
+    from: awaiting_committee
+    to: awarded
+    by: committee
+    task:
+      title: Award the consultation
+      instructions: >-
+        The highest total reaches the committee threshold. Read the memo and the offers. Name the supplier
+        you award to and why. The memo ranks by price and recommends nobody; the choice is yours. Send it
+        back with your questions to have the memo rewritten, or close the consultation without an award.
+      form:
+        type: object
+        required: [awarded_supplier, rationale]
+        properties:
+          awarded_supplier: { type: string, minLength: 1, title: Awarded supplier }
+          rationale: { type: string, minLength: 1, title: Why this supplier }
+      attest: I award this consultation on the basis of the files and the memo I read.
+    on_reject: computed
+  - id: t-no-award-committee
+    from: awaiting_committee
+    to: not_awarded
+    by: committee
+    task:
+      title: Close without an award
+      instructions: Say why no supplier is awarded this consultation.
+      form:
+        type: object
+        required: [no_award_reason]
+        properties:
+          no_award_reason: { type: string, minLength: 1, title: Why nobody is awarded }
+
+  - id: t-abandon
+    from: needs_human
+    to: abandoned
+    by: buyer
+    timeout_hours: 168
+
+artifacts:
+  comparison_memo_markdown: { show: tab, title: Comparison memo }
+  approval_tier:
+    type: level
+    title: Approval tier
+    show: facts
+    levels:
+      - { value: standard, tone: ok, title: Standard }
+      - { value: committee, tone: warn, title: Committee }
+  highest_total:
+    type: metric
+    title: Highest total
+    show: facts
+    # No unit: the currency is the work item's field `currency`, and a metric's unit is a fixed word.
+    better: lower
+defaults:
+  from_any_agent_state:
+    on_question: needs_human
+    on_budget_exceeded: needs_human
+    on_timeout: needs_human
+  needs_human:
+    on_answer: resume
+    on_abandon: abandoned

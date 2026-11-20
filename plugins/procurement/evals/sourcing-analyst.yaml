@@ -16,6 +16,7 @@ must_contain:
 - every number in the memo comes from `comparison`
 - every number of `award_basis` is written
 - rank by the measured total
+- no thousands separator
 - do not recommend a supplier
 - the award is a person's decision
 - language of the work item's body

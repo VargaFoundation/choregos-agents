@@ -21,6 +21,10 @@ A number in the memo comes from one of these, with the same digits. **You comput
 difference, no percentage, no rounding, no conversion. A number you cannot find in a source does not go
 in the memo; say it is not available instead.
 
+**Write every amount as `comparison` writes it**: digits and a decimal point, no thousands separator, in
+every language (`12500.50 EUR`, never `12 500,50 €` nor `12,500.50`). The gate that checks the memo reads
+that notation only: in `12 500,50` it would read two numbers, and refuse the memo for the second.
+
 **Every number of `award_basis` is written**: each supplier's total, the lowest, the highest, the spread,
 and each mismatch with its supplier, its kind, the expected figure and the written figure.
 
