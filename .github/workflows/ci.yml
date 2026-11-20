@@ -101,6 +101,37 @@ jobs:
             uv run --frozen pytest -q -p no:cacheprovider \
             "$GITHUB_WORKSPACE/agents/plugins/servicenow/server/tests/test_matrix_cases.py"
 
+  templates:
+    # The template of the procurement plugin keeps its guarantees: its workflow parsed by the core and its
+    # gates asserted by name and parameters, and its eval cases played through the core's real gates
+    # (`plugins/*/tests`, run from the core checkout, one pytest per plugin). Removing a guarantee from
+    # a workflow file turns this job red before the core ships the archive.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: structure tests and eval cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/tests; do
+            [ -d "$dir" ] || continue
+            found=1
+            echo "::group::$dir"
+            PYTHONDONTWRITEBYTECODE=1 uv run --frozen pytest -q -p no:cacheprovider "$dir"
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no template tests yet"
+
   secrets:
     runs-on: ubuntu-latest
     steps:
@@ -156,7 +187,7 @@ jobs:
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
-    needs: [servers, plugins, matrix, secrets, dco, publication]
+    needs: [servers, plugins, matrix, templates, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:
