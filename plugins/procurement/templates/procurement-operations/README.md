@@ -117,3 +117,35 @@ your own copy of the workflow, and keep `max_children` equal to `--max`.
   or a figure that only `get_contract` holds is described in words, since the gate admits only the summary's.
 - **No injection detector**: a contract's notes are third-party text. The agent is told to report an instruction,
   the number gate bounds what the memo can claim, no write happens before a person decides and another approves.
+
+## The second workflow: `purchase-request`, a request qualified and routed
+
+An employee states a need (`need`, required), and optionally an estimated amount (a number), its currency
+(three letters) and the date it is needed by. The agent `request-qualifier` reads the request against the
+framework agreements the purchasing server lists and the knowledge base `purchasing-policy`, and proposes one
+route: `catalogue`, `framework_agreement`, `three_quotes` or `tender`. A person of the group `buyers` reviews,
+attested, and **chooses the route** (one task per route, so the buyer may differ from the proposal); the
+terminal state names it (`routed_catalogue`, `routed_framework_agreement`, `routed_three_quotes`,
+`routed_tender`), or the buyer declines, or sends the proposal back with remarks. **The workflow opens nothing
+in the purchasing system**: launching a consultation or an order is the buyer's next gesture.
+
+| Step | Who | Gates |
+|:--|:--|:--|
+| `t-qualify` | agent `request-qualifier` | `output_schema` (`qualification`: `category`, `route`, `agreement_id`, `rationale`; an agreement id for a framework agreement and for no other route); `outputs_in` on `route`; `numbers_measured` on `fields`; `tool_called` on `purchasing__list_framework_agreements` |
+| review | group `buyers` (48 h) | the attestation |
+
+- **The policy is the organisation's.** The template declares the base `purchasing-policy` empty (no source,
+  served as files): add your own documents to it (categories bought from a catalogue, the amounts that call for
+  quotes or a tender). The agent applies the rules as written, never invents a threshold, and with no rule that
+  covers the request proposes the most demanding route, `tender`, which the buyer may lower.
+- **The agreements are always looked at.** A gate on a transition applies to every run of it, so it cannot
+  wait for the route: the agent must call `list_framework_agreements` every time, and the ledger proves it.
+- **The amount is the one typed.** Every number of the brief and the qualification must be in the work item's
+  fields. A request with no amount makes the agent ask (`ask_human`; the work item waits at `needs_human` for
+  an answer), never guess. An amount that reaches the agent only as an answer is not a field, so the agent
+  writes it without digits.
+- **Limits that follow.** The agent writes no threshold of the policy and no figure of an agreement (they are
+  not measured): it cites the policy by the title of its section. An agreement id whose number is ten or more
+  (`FA-0012`) is read by the gate as an unmeasured number and refused, so the proposal goes to a person; the
+  ids of the fake's scenes stay below ten.
+- **Not proved**: what a model writes, or that the route is right: the evals are live and CI does not play them.

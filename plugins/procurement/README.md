@@ -11,12 +11,13 @@ the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code 
 | Agent | [`agents/supplier-file-checker.yaml`](agents/supplier-file-checker.yaml) | catalogue role `structure`: copies a supplier's identity and dated documents into `supplier_file` |
 | Agent | [`agents/renewal-analyst.yaml`](agents/renewal-analyst.yaml) | catalogue role `renewal_memo`: writes `renewal_memo_markdown` for one contract ending soon (`get_contract` only) |
 | Workflows | [`templates/procurement-operations`](templates/procurement-operations/README.md) | `contract-renewals` (a scheduled campaign) and `contract-renewal-memo` (one memo and one buyer's decision per contract, recorded as a governed contract note) |
+| Agent | [`agents/request-qualifier.yaml`](agents/request-qualifier.yaml) | catalogue role `qualify`: reads a purchase request against the house policy and the framework agreements, proposes a route in `qualification` and a `brief_markdown` |
 | Skills | [`skills/reading-supplier-offers`](skills/reading-supplier-offers/SKILL.md), [`skills/writing-comparison-memos`](skills/writing-comparison-memos/SKILL.md) | the output contract and rules of each agent |
 | Template | [`templates/procurement-sourcing`](templates/procurement-sourcing/README.md) | workflow `offer-comparison`: extract, read, compute, memo, tier, award |
-| Template | [`templates/procurement-operations`](templates/procurement-operations/README.md) | workflow `supplier-onboarding`: extract, read, measure, review, create the record under approval; needs the connector `purchasing` |
+| Template | [`templates/procurement-operations`](templates/procurement-operations/README.md) | workflow `supplier-onboarding`: extract, read, measure, review, create the record under approval; workflow `purchase-request`: qualify a request and route it, nothing opened; needs the connector `purchasing` |
 | Server | [`servers/purchasing.yaml`](servers/purchasing.yaml), source [`server/`](server/PROFILE.md) | the MCP server `purchasing`: eleven operations of a fixed profile, served by a seeded fake only |
 | Procedure | [`procedures/connector.mcp.purchasing.md`](procedures/connector.mcp.purchasing.md) | how the server is connected (today: the fake, no real backend) |
-| Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml), [`evals/supplier-file-checker.yaml`](evals/supplier-file-checker.yaml) | instruction checks, and live cases each, with invented suppliers and amounts |
+| Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml), [`evals/supplier-file-checker.yaml`](evals/supplier-file-checker.yaml), [`evals/request-qualifier.yaml`](evals/request-qualifier.yaml) | instruction checks, and live cases each, with invented suppliers and amounts |
 
 ## What version 0.2.0 adds: the server `purchasing`
 
@@ -47,6 +48,19 @@ different from the request or already held. **No bank detail is handled.**
   tests that fail without each guarantee.
 - **Does not prove**: a run of the workflow, or what a model writes (the agent's live evals are not played
   by CI); that a document is genuine.
+
+## What version 0.2.0 adds: purchase requests, qualified
+
+The agent `request-qualifier` and the workflow `purchase-request` (template `procurement-operations`): an
+employee's request is read against the framework agreements in force and the organisation's own policy (the
+knowledge base `purchasing-policy`, shipped empty), one route is proposed, and a buyer chooses the route,
+attested. The workflow opens nothing in the purchasing system. The agent must always look at the agreements
+(a gate reads the ledger), writes only numbers the requester typed, and asks when the amount is missing.
+
+- **Proves**: the workflow's structure (no action, the four gates, the route values, the attested review), and
+  the core's real gates on outputs an agent could write, by tests that fail without each guarantee.
+- **Does not prove**: what a model writes, that a route is the right one, or a run (the live evals are not played
+  by CI). An agreement id with a number of ten or more is refused by the number gate (see the template README).
 
 ## What version 0.1.0 holds
 

@@ -19,10 +19,17 @@ requires:
   org_connectors:
     purchasing: mcp
 defaults:
-  workflows: [./workflows/supplier-onboarding.yaml, ./workflows/contract-renewals.yaml, ./workflows/contract-renewal-memo.yaml]
+  workflows: [./workflows/supplier-onboarding.yaml, ./workflows/purchase-request.yaml, ./workflows/contract-renewals.yaml, ./workflows/contract-renewal-memo.yaml]
   default_workflow: supplier-onboarding
   # A closed sandbox: supplier documents are confidential and untrusted.
   policy: preset:regulated
-  # The agent `supplier-file-checker` comes with the plugin itself.
+  # The agents `supplier-file-checker` and `request-qualifier` come with the plugin itself.
+  # The house purchasing rules the agent `request-qualifier` reads: the organisation fills this base with its
+  # own policy (no source here: a template cannot know where it lives), served as files.
+  knowledge:
+    - slug: purchasing-policy
+      name: Purchasing policy
+      description: The organisation's own purchasing rules (which categories are bought from a catalogue, from which amount quotes or a tender are required). Empty until the organisation adds its documents.
+      serving_mode: files
 inputs: []
 steps: []
