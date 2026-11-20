@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# The Microsoft 365 desk plugin: one MCP server that makes an IT desk's intake channels — a shared mailbox
+# and Teams channels through a bot — a Tranibor tracker, so that each request becomes a work item and the
+# platform answers the requester in the original thread; and the procedure to set it up at Microsoft.
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: microsoft-365-desk
+  version: 0.1.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: >-
+    An IT desk's requests as work items: a Microsoft 365 shared mailbox (Graph application permissions,
+    restricted to that one mailbox) and Teams channels through a bot whose deliveries are verified. The
+    requester is answered in the original thread, once per governed action.
+  homepage: https://github.com/graalsystems/tranibor-agents
+  # 0.28.0: the first core with `webhook.forward_authorization` (ADR 0198), which forwards the Bot
+  # Connector's `Authorization` header to the server's `tracker_parse_event`. An older core refuses the
+  # field, and without the header no Teams delivery could be verified.
+  core: ">=0.28.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+  # The organisation connector the template's grants call, by name, and its capability (as the template
+  # declares it); `desk` is this plugin's own server, installed with it.
+  org_connectors:
+    directory: identity
+contents:
+  procedures: ["procedures/*.md"]
+  servers: [servers/desk.yaml]
+  # The access-requests template on this server's mailbox and Teams tracker (its twin, fed by a trigger,
+  # is the access-requests plugin's; that plugin's tests keep the two from drifting apart).
+  templates: [templates/access-requests-m365]

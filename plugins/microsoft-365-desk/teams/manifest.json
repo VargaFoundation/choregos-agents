@@ -1,0 +1,48 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "0.1.0",
+  "id": "<client id>",
+  "developer": {
+    "name": "<your organisation>",
+    "websiteUrl": "https://<your organisation's site>",
+    "privacyUrl": "https://<your organisation's site>/privacy",
+    "termsOfUseUrl": "https://<your organisation's site>/terms"
+  },
+  "name": {
+    "short": "IT desk",
+    "full": "IT desk (Tranibor)"
+  },
+  "description": {
+    "short": "Ask the IT desk in this channel: mention the bot.",
+    "full": "Mention the bot in a message of this channel: the request becomes a work item of the IT desk, and the answer comes back in the thread."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#FFFFFF",
+  "bots": [
+    {
+      "botId": "<client id>",
+      "scopes": ["team"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "validDomains": [],
+  "webApplicationInfo": {
+    "id": "<client id>",
+    "resource": "https://RscBasedStoreApp"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "ChannelMessage.Read.Group",
+          "type": "Application"
+        }
+      ]
+    }
+  }
+}
