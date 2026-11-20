@@ -62,3 +62,58 @@ duplicate stops at a person.
   and another registration number is not found.
 - **Measured does not mean true.** A document that states a wrong registration number, copied faithfully,
   is caught only if it differs from what the person typed.
+
+## The renewal campaign: one memo and one decision per contract ending soon
+
+Two more workflows, `contract-renewals` (the campaign) and `contract-renewal-memo` (one contract). They need the
+same connector `purchasing` and the agent `renewal-analyst`, and a group `buyers`.
+
+| Step | Who | What happens | Gates | On failure |
+|:--|:--|:--|:--|:--|
+| `t-list` | job `renewals` | lists the contracts that end within 90 days, at most 50, into `contracts` (`expiring`, `by_id`, `left_out`) | `outputs_present` | a person (`needs_human`) |
+| `t-measure` | the platform | goes on only if the measured `contracts_expiring` is at least 1 | `evidence_facts`, measured only | one more listing, then the terminal `nothing_due` |
+| `t-fan-out` | the platform | one child `contract-renewal-memo` per expiring contract, at most 50, and waits for every one | the join | a person |
+| `t-close` | group `buyers` | reads the children and `contracts.left_out`, writes the closing note, attested | the attestation | |
+
+Each child: the agent `renewal-analyst` reads the contract (`get_contract` only) and writes
+`renewal_memo_markdown`, gated by `output_sections` (five sections, in order) and by `numbers_measured` against
+`parent.contracts.by_id.$contract_id`, the summary the job measured for that contract and no other. A person of
+`buyers` decides `renew`, `renegotiate` or `terminate` in an attested task. The decision is recorded by one
+governed action, `purchasing.add_contract_note`, whose text names the decision and the person's rationale; a
+person of `buyers` approves it, re-authenticated within 10 minutes. The workflows write nothing else.
+
+### The schedule is project configuration
+
+A schedule opens the campaign; it is not template content (`ProjectConfig.schedules`, core ADR 0113). Add it to
+the project's configuration:
+
+```yaml
+schedules:
+  - name: contract-renewals
+    cron: "0 6 1 * *"          # UTC, five fields: the first of each month at 06:00
+    title: Contract renewals
+    workflow: contract-renewals
+```
+
+The window (90 days) and the cap (50) are arguments of the job in the workflow file, never fields: edit them in
+your own copy of the workflow, and keep `max_children` equal to `--max`.
+
+### What the campaign guarantees
+
+- A contract ending soon gets a memo whose every number is one the job measured for that contract, and a
+  decision a named person attested; nothing is written to the purchasing system without a buyer's approval.
+- An empty list ends the campaign in `nothing_due` on a measured count; a failed listing goes to a person and is
+  never read as "nothing due".
+- A contract that does not fit under the cap is named in `contracts.left_out`, never dropped.
+
+### What it does not guarantee
+
+- **The closing summary is a buyer's.** Nothing checks that the closing note quotes `left_out`: the task asks for
+  it. The platform has no step that writes prose from a job's facts without an agent, and the campaign adds none.
+- **Every campaign lists the same contract again** until it has ended or is outside the window: a monthly
+  schedule opens a second memo for a contract decided last month. The earlier decision is a note on the contract
+  (`note_count`); the job does not filter on it.
+- **A memo does not decide.** The agent lists what the file shows for each option and recommends none; a note
+  or a figure that only `get_contract` holds is described in words, since the gate admits only the summary's.
+- **No injection detector**: a contract's notes are third-party text. The agent is told to report an instruction,
+  the number gate bounds what the memo can claim, no write happens before a person decides and another approves.

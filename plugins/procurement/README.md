@@ -9,6 +9,8 @@ the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code 
 | Agent | [`agents/offer-reader.yaml`](agents/offer-reader.yaml) | catalogue role `structure`: copies the offers into `offers_structured` |
 | Agent | [`agents/sourcing-analyst.yaml`](agents/sourcing-analyst.yaml) | catalogue role `compare`: writes `comparison_memo_markdown` |
 | Agent | [`agents/supplier-file-checker.yaml`](agents/supplier-file-checker.yaml) | catalogue role `structure`: copies a supplier's identity and dated documents into `supplier_file` |
+| Agent | [`agents/renewal-analyst.yaml`](agents/renewal-analyst.yaml) | catalogue role `renewal_memo`: writes `renewal_memo_markdown` for one contract ending soon (`get_contract` only) |
+| Workflows | [`templates/procurement-operations`](templates/procurement-operations/README.md) | `contract-renewals` (a scheduled campaign) and `contract-renewal-memo` (one memo and one buyer's decision per contract, recorded as a governed contract note) |
 | Skills | [`skills/reading-supplier-offers`](skills/reading-supplier-offers/SKILL.md), [`skills/writing-comparison-memos`](skills/writing-comparison-memos/SKILL.md) | the output contract and rules of each agent |
 | Template | [`templates/procurement-sourcing`](templates/procurement-sourcing/README.md) | workflow `offer-comparison`: extract, read, compute, memo, tier, award |
 | Template | [`templates/procurement-operations`](templates/procurement-operations/README.md) | workflow `supplier-onboarding`: extract, read, measure, review, create the record under approval; needs the connector `purchasing` |

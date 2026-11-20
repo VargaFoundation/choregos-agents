@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: Apache-2.0
+# The renewal campaign (core ADRs 0057, 0198, plan PA-09). A schedule (project configuration, the template's
+# README gives the block) opens one work item; a job lists the contracts that end within the window; a
+# measured fact decides whether there is anything to do; one child work item per contract writes a memo and
+# gets a buyer's decision; the campaign resumes once every child is settled.
+#
+# - The window (`--within-days`) and the cap (`--max`) are arguments of the job HERE, never fields: a field
+#   is editable by the person the window constrains, and a workflow version is pinned to the work item.
+# - `--max` and `max_children` are the same number (a test holds them equal): what does not fit is named in
+#   `contracts.left_out`, never dropped, and the closing task asks the buyer to name it.
+# - A crash of the listing is not "nothing due": the job's own failure goes to a person; only a MEASURED
+#   `contracts_expiring` below 1 ends the campaign in `nothing_due`. `when:` reads a whole output, never a
+#   fact or a key inside an output, so the route is a gate of its own platform step (as `t-verdict` of the
+#   investment campaign): the gate fails, the retry lists once more, then the item escalates to `nothing_due`.
+# - The fan-out waits for EVERY child (the join of ADR 0057 waits for all of them, whatever `succeeded` says).
+#   `succeeded: [recorded]` only counts the children whose decision was written to the contract;
+#   `min_succeeded` stays 0 so that one abandoned contract does not fail the campaign of the others.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: contract-renewals
+  version: 1
+  description: A campaign over the contracts that end soon, one memo and one buyer's decision per contract, each decision recorded as a governed note on the contract.
+  catalogue:
+    title: Contract renewals
+    summary: A schedule opens it. Every contract ending within the window gets a memo and a buyer's decision, recorded under approval; the campaign names any contract it left out.
+    tags: [procurement, contracts]
+  inputs:
+    type: object
+    properties:
+      closing_note: { type: string, title: "What the buyer did about the contracts left out, and the campaign overall" }
+initial: opened
+actors:
+  # The only reader of the contract register for the whole campaign: through the connector, with the run's token.
+  lister:
+    type: job
+    role: list
+    command: [tranibor-procurement, renewals, --within-days, "90", --max, "50"]
+    image: procurement
+    max_minutes: 10
+    tools: [{ connector: purchasing, tools: [list_contracts] }]
+  platform: { type: system }
+  buyers: { type: human, group: buyers, sla_hours: 72 }
+states:
+  opened: { display: Campaign opened }
+  listed: { display: Contracts listed }
+  due: { display: Contracts to renew found }
+  settled: { display: Every contract decided, kind: wait }
+  needs_human: { display: Needs a human, kind: wait }
+  closed: { display: Campaign closed, terminal: true }
+  nothing_due: { display: No contract ends soon, terminal: true }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  # `contracts` = {expiring, by_id, left_out}. A listing that fails is a person's business, not an empty one.
+  - id: t-list
+    from: opened
+    to: listed
+    by: lister
+    outputs: [contracts]
+    output_types: { contracts: json }
+    gates: [outputs_present]
+    on_fail: { to: opened, max_attempts: 1, escalate_to: needs_human }
+
+  # The route to `nothing_due`: the measured count, never an agent's word.
+  - id: t-measure
+    from: listed
+    to: due
+    by: platform
+    gates:
+      - name: evidence_facts
+        params: { keys: [contracts_expiring], min: { contracts_expiring: 1 }, measured_only: true }
+    on_fail: { to: opened, max_attempts: 1, escalate_to: nothing_due }
+
+  # One child per contract, in `contract-renewal-memo`: its memo (numbers measured for that contract only) and
+  # its attested decision. The join resumes the campaign once every child is settled.
+  - id: t-fan-out
+    from: due
+    to: settled
+    by: platform
+    spawn:
+      workflow: contract-renewal-memo
+      for_each: outputs.contracts.expiring
+      title: "Renewal memo and decision: {{ item }} ({{ parent.key }})"
+      fields:
+        contract_id: "{{ item }}"
+        summary: "{{ outputs.contracts.by_id[item] }}"
+      max_children: 50
+      succeeded: [recorded]
+      min_succeeded: 0
+    on_fail: { to: due, max_attempts: 1, escalate_to: needs_human }
+
+  # The closing summary is a buyer's, attested: the platform has no step that writes prose from the job's
+  # facts without an agent, and this campaign adds none. The task names `left_out` and the counts.
+  - id: t-close
+    from: settled
+    to: closed
+    by: buyers
+    task:
+      title: Close the renewal campaign
+      instructions: >-
+        Every contract the job listed has a memo and a decision, or was abandoned: the children of this
+        campaign show which. The job listed at most 50 contracts. Open the tab "Contracts ending soon" and read
+        `left_out`: the contracts that end within the window but did not fit under that cap, and the fact
+        `contracts_left_out` counts them. Quote each of them in your note (or write that the list is empty), say
+        what you will do about it (a new campaign, a decision outside the platform), and name any contract
+        whose child was abandoned.
+      form:
+        type: object
+        required: [closing_note]
+        properties:
+          closing_note: { type: string, minLength: 1, title: "What the buyer did about the contracts left out, and the campaign overall" }
+      attest: I read the memo and decision of each contract and the list of contracts left out, and I closed the campaign.
+    on_reject: abandoned
+
+  - id: t-relaunch
+    from: needs_human
+    to: opened
+    by: buyers
+    on_reject: abandoned
+artifacts:
+  contracts: { show: tab, title: Contracts ending soon }
+defaults:
+  needs_human:
+    on_answer: resume
+    on_abandon: abandoned

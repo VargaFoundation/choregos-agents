@@ -25,9 +25,9 @@ requires:
   plugins: []
   connectors: {}
 contents:
-  agents: [agents/offer-reader.yaml, agents/sourcing-analyst.yaml, agents/supplier-file-checker.yaml]
+  agents: [agents/offer-reader.yaml, agents/sourcing-analyst.yaml, agents/supplier-file-checker.yaml, agents/renewal-analyst.yaml]
   skills: [skills/reading-supplier-offers, skills/writing-comparison-memos]
   templates: [templates/procurement-sourcing, templates/procurement-operations]
-  evals: [evals/offer-reader.yaml, evals/sourcing-analyst.yaml, evals/supplier-file-checker.yaml]
+  evals: [evals/offer-reader.yaml, evals/sourcing-analyst.yaml, evals/supplier-file-checker.yaml, evals/renewal-analyst.yaml]
   procedures: ["procedures/*.md"]
   servers: [servers/purchasing.yaml]

@@ -19,7 +19,7 @@ requires:
   org_connectors:
     purchasing: mcp
 defaults:
-  workflows: [./workflows/supplier-onboarding.yaml]
+  workflows: [./workflows/supplier-onboarding.yaml, ./workflows/contract-renewals.yaml, ./workflows/contract-renewal-memo.yaml]
   default_workflow: supplier-onboarding
   # A closed sandbox: supplier documents are confidential and untrusted.
   policy: preset:regulated

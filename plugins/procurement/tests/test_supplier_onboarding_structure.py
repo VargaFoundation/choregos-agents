@@ -231,7 +231,7 @@ def test_the_agent_instructions_keep_the_evals_level_one_and_the_measure_out_of_
 def test_the_template_needs_the_purchasing_connector_and_the_plugin_ships_it() -> None:
     manifest = yaml.safe_load((TEMPLATE / "manifest.yaml").read_text(encoding="utf-8"))
     assert manifest["requires"]["org_connectors"] == {"purchasing": "mcp"}
-    assert manifest["defaults"]["workflows"] == ["./workflows/supplier-onboarding.yaml"]
+    assert "./workflows/supplier-onboarding.yaml" in manifest["defaults"]["workflows"]
     contents = yaml.safe_load((PLUGIN / "plugin.yaml").read_text(encoding="utf-8"))["contents"]
     assert "templates/procurement-operations" in contents["templates"]
     assert "agents/supplier-file-checker.yaml" in contents["agents"]

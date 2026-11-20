@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: Apache-2.0
+# The memo of ONE contract the renewal campaign found ending soon, and a buyer's decision on it (core ADRs 0057
+# and 0198, plan PA-09). The campaign opens one of these per contract (`spawn:` of `contract-renewals.yaml`);
+# each is followed on its own: its own memo, its own attested decision, its own governed note, its own audit.
+#
+# - The numbers the memo may quote are the ones the campaign's job MEASURED for this contract:
+#   `numbers_measured` reads them in the PARENT's `contracts` document (this contract's entry, `$contract_id`),
+#   never in this work item's fields: a person can edit those, and a work item created by hand has no parent,
+#   so its memo is refused. A memo of one contract cannot quote another's.
+# - The decision (renew, renegotiate, terminate) is a person's, in an attested task. It is recorded by the only
+#   action of the workflow, `add_contract_note`: a governed write that a buyer approves, re-authenticated. The
+#   note names the decision and the person's own rationale, and nothing the agent wrote.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: contract-renewal-memo
+  version: 1
+  description: The memo and the decision for one contract that ends soon; the decision is recorded as a note on the contract under approval.
+  inputs:
+    type: object
+    required: [contract_id, summary]
+    properties:
+      contract_id: { type: string, minLength: 1, title: Contract (copied by the platform) }
+      summary: { type: object, title: What the campaign's job listed for this contract (copied by the platform) }
+      # Written by the decision form. A value typed when the work item is opened is a draft: the form replaces it.
+      decision: { type: string, enum: [renew, renegotiate, terminate], title: The decision }
+      rationale: { type: string, minLength: 1, maxLength: 1500, title: Why }
+initial: contract
+actors:
+  analyst: { type: agent, role: renewal_memo, agent: renewal-analyst, max_turns: 12, max_minutes: 10 }
+  platform: { type: system }
+  buyers: { type: human, group: buyers, sla_hours: 72 }
+states:
+  contract: { display: Contract ending soon }
+  memo_written: { display: Memo to decide, kind: wait }
+  decided: { display: Decision taken }
+  recorded: { display: Decision recorded on the contract, terminal: true }
+  to_review: { display: To review, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  - id: t-memo
+    from: contract
+    to: memo_written
+    by: analyst
+    outputs: [renewal_memo_markdown]
+    gates:
+      - name: output_sections
+        params:
+          outputs:
+            renewal_memo_markdown: [Summary, Contract, Notes on file, Options, What this memo does not cover]
+          ordered: true
+      - name: numbers_measured
+        params:
+          sources: [parent.contracts.by_id.$contract_id]
+          outputs: [renewal_memo_markdown]
+    on_fail: { to: contract, max_attempts: 2, escalate_to: to_review }
+
+  - id: t-decide
+    from: memo_written
+    to: decided
+    by: buyers
+    task:
+      title: Decide on the contract
+      instructions: >-
+        Read the memo. Choose renew, renegotiate or terminate and say why in your own words: your rationale,
+        and the decision, are what will be written as a note on the contract once a buyer approves.
+      form:
+        type: object
+        required: [decision, rationale]
+        properties:
+          decision: { type: string, enum: [renew, renegotiate, terminate], title: The decision }
+          rationale: { type: string, minLength: 1, maxLength: 1500, title: Why }
+      attest: I read the memo and the contract's notes; this decision, and the reason I give, are mine.
+    on_reject: abandoned
+
+  # The only action. The note is what the person decided and wrote, never what the agent wrote.
+  - id: t-record
+    from: decided
+    to: recorded
+    by: platform
+    action:
+      kind: procurement.add_contract_note
+      title: "Record the decision on contract {{ fields.contract_id }}: {{ fields.decision }}"
+      justification: decision of a buyer, attested
+      params:
+        contract_id: "{{ fields.contract_id }}"
+        text: "Renewal decision: {{ fields.decision }}. Rationale: {{ fields.rationale }}"
+      effects:
+        - effect: connector.call
+          with:
+            connector: purchasing
+            operation: add_contract_note
+            arguments:
+              contract_id: "{{ params.contract_id }}"
+              text: "{{ params.text }}"
+      approval:
+        approvers: [{ role: approver, group: buyers, min: 1 }]
+        step_up_minutes: 10
+        separation_of_duties: true
+    on_fail: { to: decided, max_attempts: 2, escalate_to: to_review }
+
+  - id: t-relaunch
+    from: to_review
+    to: contract
+    by: buyers
+    on_reject: abandoned
+artifacts:
+  renewal_memo_markdown: { show: tab, title: Renewal memo }
+defaults:
+  from_any_agent_state: { on_question: to_review }
