@@ -13,8 +13,8 @@ env:
   # graalsystems/tranibor, after the rename to Tranibor (ADR 0176). publish.yml pins the same commit.
   # TEMPORARY, integration branch of the procurement plugin only (core PLAN-2026-11-20-procurement §4):
   # a commit of the core's branch that carries metadata.attachments, the reserved input and the gate
-  # output_sections (S84-03 to S84-15). Story PA-04 moves this and publish.yml together to the release that ships them.
-  CHOREGOS_REF: e5bfad48ec15bb83a55242ff01ab6e45c16712ca
+  # output_sections, and the job commands of lot 2 (S84-03 to S84-15). Story PA-04 moves this and publish.yml together to the release that ships them.
+  CHOREGOS_REF: f97f6f69e7881f3a345480a064961a7e7b7a9121
 
 jobs:
   servers:
