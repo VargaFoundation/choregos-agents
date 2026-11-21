@@ -6,11 +6,14 @@
 # seeded fake) and the procedure that connects it. It also adds the agents `supplier-file-checker`,
 # `request-qualifier` and `renewal-analyst` and the template `procurement-operations`, whose workflows onboard a
 # supplier, qualify a purchase request and run a renewal campaign (the plugin's first governed writes).
+# 0.2.1 fixes what the core's end-to-end tests found in 0.2.0 (core S85-10): two eval needles were split across
+# a line, so every core refused to install the archive, and the comparison's compute step did not hand
+# `compare` the `offers_text` it reads, so every comparison stopped at `needs_human`.
 apiVersion: choregos/v1
 kind: Plugin
 metadata:
   name: procurement
-  version: 0.2.0
+  version: 0.2.1
   publisher: GRAAL.SYSTEMS SAS
   license: Apache-2.0
   description: >-

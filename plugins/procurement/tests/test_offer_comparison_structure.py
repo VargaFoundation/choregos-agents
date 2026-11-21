@@ -61,6 +61,17 @@ def test_every_job_runs_the_procurement_image() -> None:
         assert job.command[0] == "tranibor-procurement", key
 
 
+def test_the_compute_step_hands_compare_every_input_it_reads() -> None:
+    """`tranibor-procurement compare` reads `offers_structured` and `offers_text` (the core's
+    `tranibor_procurement.compare`); 0.2.0 declared the first only, and every comparison stopped at
+    `needs_human` on "input offers_text.json is missing" (found by the core's S85-10)."""
+    from tranibor_procurement import compare
+
+    assert _workflow().actors["calculator"].command[:2] == ["tranibor-procurement", "compare"]
+    declared = set(_transition("t-compute").inputs)
+    assert {compare.OFFERS_STRUCTURED, compare.OFFERS_TEXT} <= declared, declared
+
+
 def test_the_tier_job_carries_the_committee_threshold_in_its_command() -> None:
     command = _workflow().actors["tierer"].command
     assert command[:2] == ["tranibor-procurement", "tier"]

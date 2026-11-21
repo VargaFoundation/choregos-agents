@@ -5,7 +5,7 @@ the plugin of the Tranibor core's ADR 0202 (`procurement is a plugin whose code 
 
 | Part | Path | What it is |
 |:--|:--|:--|
-| Manifest | [`plugin.yaml`](plugin.yaml) | `procurement` 0.2.0, core `>=0.28.0,<1.0.0` (provisional floor, below) |
+| Manifest | [`plugin.yaml`](plugin.yaml) | `procurement` 0.2.1, core `>=0.28.1,<1.0.0` |
 | Agent | [`agents/offer-reader.yaml`](agents/offer-reader.yaml) | catalogue role `structure`: copies the offers into `offers_structured` |
 | Agent | [`agents/sourcing-analyst.yaml`](agents/sourcing-analyst.yaml) | catalogue role `compare`: writes `comparison_memo_markdown` |
 | Agent | [`agents/supplier-file-checker.yaml`](agents/supplier-file-checker.yaml) | catalogue role `structure`: copies a supplier's identity and dated documents into `supplier_file` |
@@ -20,6 +20,18 @@ the plugin of the Tranibor core's ADR 0202 (`procurement is a plugin whose code 
 | Server | [`servers/purchasing.yaml`](servers/purchasing.yaml), source [`server/`](server/PROFILE.md) | the MCP server `purchasing`: eleven operations of a fixed profile, served by Odoo 19 and 20 and by a seeded fake |
 | Procedure | [`procedures/connector.mcp.purchasing.md`](procedures/connector.mcp.purchasing.md) | how the server is connected to Odoo: a dedicated user, the least rights, an API key |
 | Evals | [`evals/offer-reader.yaml`](evals/offer-reader.yaml), [`evals/sourcing-analyst.yaml`](evals/sourcing-analyst.yaml), [`evals/supplier-file-checker.yaml`](evals/supplier-file-checker.yaml), [`evals/request-qualifier.yaml`](evals/request-qualifier.yaml) | instruction checks, and live cases each, with invented suppliers and amounts |
+
+## What version 0.2.1 fixes
+
+What the core's end-to-end tests found when they installed the signed 0.2.0 archive (core S85-10):
+
+- **Two eval needles were split across a line** of their agent's YAML (`quoted remark` in `offer-reader`,
+  `the files are handed in the console` in `purchasing-desk`). Level 1 reads the rendered instructions, so
+  every core refused to install the plugin. `tests/test_agent_evals.py` now plays each suite as the core's
+  installer does, level 1 and the deterministic cases.
+- **The compute step did not hand `compare` the `offers_text` it reads**: the job exited on a missing input
+  and every comparison stopped at `needs_human`. `t-compute` declares both inputs, and a structure test
+  holds them to what `tranibor_procurement.compare` reads.
 
 ## What version 0.2.0 adds: the server `purchasing`
 
@@ -73,9 +85,8 @@ attested. The workflow opens nothing in the purchasing system. The agent must al
 The two agents, their two skills, their evals and the template `procurement-sourcing` that wires them
 (extraction, the offer-reader, a computing step, the sourcing-analyst, a tier, a person's attested
 decision). The job image `procurement` that extracts and computes, and that the template's job steps name,
-comes in a later change. The `core` floor `0.28.0` is **provisional**: it
-stands for the first core release that carries the reserved input `attachments` (core ADR 0201) and is to
-be corrected to that release's version when the plugin is published.
+comes in a later change. The `core` floor is `0.28.1`, the first core release that carries the reserved
+input `attachments` (core ADR 0201), `output_sections` and the job commands of `tranibor-procurement`.
 
 Both agents declare `memories: []`, no catalogue tool, no extension, no web and no MCP server: supplier
 documents are confidential and untrusted, and an offer must not reach another consultation.
@@ -122,7 +133,7 @@ suppliers, What this memo does not cover.
 
 ```sh
 tranibor plugin validate plugins/procurement
-tranibor plugin pack plugins/procurement -o procurement-0.2.0.tar.gz   # same bytes every time
+tranibor plugin pack plugins/procurement -o procurement-0.2.1.tar.gz   # same bytes every time
 ```
 
 The server's own checks, in `server/` (the `servers` job): `uv sync --all-extras --dev`, `uv run ruff check .`,
