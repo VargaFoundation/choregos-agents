@@ -19,15 +19,39 @@ import httpx
 import structlog
 
 from .config import Settings
-from .errors import ServiceNowError
-from .query import Query, eq
-from .tables import TABLE_FIELDS, check_fields, check_sys_id, check_table
+from .errors import NotApplied, ServiceNowError
+from .query import Filter, Op, Query, eq
+from .tables import TABLE_FIELDS, TASK_TABLES, check_fields, check_sys_id, check_table
 
 MAX_ROWS = 50
 #: A token is renewed this many seconds before ServiceNow says it expires.
 TOKEN_MARGIN_S = 60
+#: The journal fields of a task record.
+JOURNAL_ELEMENTS = frozenset({"work_notes", "comments"})
 #: How long the state labels read from `sys_choice` are kept.
 CHOICES_TTL_S = 3600
+#: The table a task table inherits its choice lists from when it defines none of its own. A real instance
+#: holds the request item's states on `task` (`name=task, element=state`), none on `sc_req_item`
+#: (checked on an Australia instance, 2026-11-21): reading `sc_req_item` alone found no state at all.
+CHOICE_PARENT = "task"
+#: ServiceNow's out-of-box state lists, used only when `sys_choice` cannot be read: its read ACL refuses
+#: an integration user that holds `itil` and not the plugin's role (`403 Insufficient rights to query
+#: records`, the same instance). The labels are the instance's own; a renamed state is then unknown.
+DEFAULT_STATE_CHOICES: dict[str, dict[str, str]] = {
+    "incident": {"1": "New", "2": "In Progress", "3": "On Hold", "6": "Resolved", "7": "Closed", "8": "Canceled"},
+    "change_request": {
+        "-5": "New", "-4": "Assess", "-3": "Authorize", "-2": "Scheduled", "-1": "Implement", "0": "Review",
+        "3": "Closed", "4": "Canceled",
+    },
+    "problem": {
+        "101": "New", "102": "Assess", "103": "Root Cause Analysis", "104": "Fix in Progress", "106": "Resolved",
+        "107": "Closed",
+    },
+    CHOICE_PARENT: {
+        "-5": "Pending", "1": "Open", "2": "Work in Progress", "3": "Closed Complete", "4": "Closed Incomplete",
+        "7": "Closed Skipped",
+    },
+}  # fmt: skip
 
 log = structlog.get_logger("choregos_servicenow.client")
 
@@ -170,6 +194,8 @@ class ServiceNowClient:
             "sysparm_exclude_reference_link": "true",
         }
         result = await self._request("POST", f"/api/now/table/{table}", params=params, json=values)
+        # Not checked against the values sent: the record exists either way, and ServiceNow cuts a text at its
+        # field's length without saying so (a 300-character short_description is stored as 160).
         record = normalise(table, result or {})
         log.info("record_created", table=table, sys_id=record["sys_id"])
         return record
@@ -183,27 +209,63 @@ class ServiceNowClient:
             "sysparm_exclude_reference_link": "true",
         }
         result = await self._request("PATCH", f"/api/now/table/{table}/{sys_id}", params=params, json=values)
+        record = normalise(table, result or {})
+        _check_applied(table, values, record)
         log.info("record_updated", table=table, sys_id=sys_id, fields=sorted(values))
+        return record
+
+    async def journal_display(self, table: str, sys_id: str, elements: tuple[str, ...]) -> dict[str, Any]:
+        """A record's journal fields as ServiceNow renders them: every entry, newest first, under a header
+        `<date> - <author> (Work notes)`, the date in the reading user's time zone; with `sys_updated_on`,
+        whose value (UTC) and label (that time zone) give the offset. The record's own field ACLs decide,
+        not `sys_journal_field`'s."""
+        check_table(table)
+        check_sys_id(sys_id)
+        unknown = sorted(set(elements) - JOURNAL_ELEMENTS)
+        if unknown:
+            raise ValueError(f"not journal fields: {', '.join(unknown)}")
+        params = {
+            "sysparm_fields": ",".join([*elements, "sys_updated_on"]),
+            "sysparm_display_value": "all",
+            "sysparm_exclude_reference_link": "true",
+        }
+        result = await self._request("GET", f"/api/now/table/{table}/{sys_id}", params=params)
         return normalise(table, result or {})
 
     # ─────────────────────────── choices ───────────────────────────
 
     async def choices(self, table: str, element: str = "state") -> dict[str, str]:
-        """`{value: label}` of a choice field, read from `sys_choice` and cached."""
+        """`{value: label}` of a choice field, read from `sys_choice` and cached.
+
+        A task table without a list of its own takes `task`'s (the request item's states live there). When
+        `sys_choice` cannot be read (403), the out-of-box state list is used and the warning says so."""
         key = (table, element)
         cached = self._choices.get(key)
         now = time.monotonic()
         if cached is not None and now - cached[0] < CHOICES_TTL_S:
             return cached[1]
-        q = Query("sys_choice").where(eq("name", table), eq("element", element), eq("inactive", "false"))
+        names = [table, CHOICE_PARENT] if table in TASK_TABLES else [table]
+        q = Query("sys_choice").where(
+            Filter(field="name", op=Op.in_, value=names), eq("element", element), eq("inactive", "false")
+        )
         q.order("sequence")
-        rows = await self.list_records("sys_choice", q, fields=["value", "label", "language"])
-        mapping: dict[str, str] = {}
+        try:
+            rows = await self.list_records("sys_choice", q, fields=["name", "value", "label", "language"])
+        except ServiceNowError as error:
+            if error.status != 403 or element != "state":
+                raise
+            mapping = dict(DEFAULT_STATE_CHOICES.get(table) or DEFAULT_STATE_CHOICES[CHOICE_PARENT])
+            log.warning("choices_unreadable_using_defaults", table=table, element=element, status=error.status)
+            self._choices[key] = (now, mapping)
+            return mapping
+        by_name: dict[str, dict[str, str]] = {}
         for row in rows:
             language = row["fields"].get("language")
             if language not in (None, "", "en"):
                 continue
-            mapping[str(row["fields"]["value"])] = str(row["fields"]["label"])
+            own = by_name.setdefault(str(row["fields"].get("name") or table), {})
+            own[str(row["fields"]["value"])] = str(row["fields"]["label"])
+        mapping = by_name.get(table) or (by_name.get(CHOICE_PARENT, {}) if table in TASK_TABLES else {})
         self._choices[key] = (now, mapping)
         return mapping
 
@@ -217,10 +279,30 @@ class ServiceNowClient:
         return None
 
 
+def _check_applied(table: str, values: dict[str, Any], record: dict[str, Any]) -> None:
+    """Every field written that the answer carries holds the value written (journal fields carry none).
+
+    ServiceNow answers 200 and keeps the old value of a field it will not write (see `NotApplied`)."""
+    kept = {
+        name: (str(asked), str(record["fields"].get(name) or ""))
+        for name, asked in values.items()
+        if name not in JOURNAL_ELEMENTS
+        and name in record["fields"]
+        and str(record["fields"].get(name) or "") != str(asked if asked is not None else "")
+    }
+    if kept:
+        log.warning("write_not_applied", table=table, sys_id=record.get("sys_id"), fields=sorted(kept))
+        raise NotApplied(table, kept)
+
+
 def _error_message(response: httpx.Response) -> str:
+    """`ServiceNow answered 403: Operation Failed — <detail>`: the detail is where a real instance says why
+    (the business rule that aborted the write, the table the user cannot read); the message alone is the
+    same `Operation Failed` for every refused write."""
     try:
         error = response.json().get("error") or {}
-        detail = error.get("message") or error.get("detail") or ""
-    except ValueError:
-        detail = ""
-    return f"ServiceNow answered {response.status_code}" + (f": {detail}" if detail else "")
+        parts = [str(error.get(k) or "").strip() for k in ("message", "detail")]
+    except (ValueError, AttributeError):
+        parts = []
+    said = " — ".join(dict.fromkeys(p for p in parts if p))[:500]
+    return f"ServiceNow answered {response.status_code}" + (f": {said}" if said else "")

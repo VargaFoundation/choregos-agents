@@ -24,7 +24,7 @@ inherits any of them from its project; its catalogue version is 2 and no instruc
 
 ```sh
 tranibor plugin validate plugins/servicenow
-tranibor plugin pack plugins/servicenow -o servicenow-0.1.2.tar.gz   # same bytes every time
+tranibor plugin pack plugins/servicenow -o servicenow-0.2.4.tar.gz   # same bytes every time
 ```
 
 `validate` reads the whole directory: run it on a clean tree (no `server/.venv` nor caches), as CI does.
@@ -194,6 +194,31 @@ SERVICENOW_BASE_URL=https://dev12345.service-now.com SERVICENOW_AUTH=basic \
 SERVICENOW_USERNAME=choregos.integration SERVICENOW_PASSWORD=… \
 SERVICENOW_WEBHOOK_SECRET=… CHOREGOS_SERVER_TOKEN=… uv run choregos-servicenow
 ```
+
+### The live suite
+
+`server/tests/live` runs the server, through MCP, against a real instance: both authentications, the
+tracker profile on an incident (filed, noted twice and written once, moved, listed in the queue, closed),
+the triage writes and their compensations, a value the instance keeps silently, the reads the triager
+uses, a change request filed once and the change model's refusal, a request item on `task`'s states. It is
+skipped without its variables (listed in `server/tests/live/conftest.py`); every record it files is tagged
+`[choregos-live <run>]` and deleted at the end when a cleanup user is given.
+
+```sh
+TRANIBOR_LIVE_SERVICENOW_URL=https://dev12345.service-now.com \
+TRANIBOR_LIVE_SERVICENOW_USERNAME=choregos.integration TRANIBOR_LIVE_SERVICENOW_PASSWORD=… \
+TRANIBOR_LIVE_SERVICENOW_CLIENT_ID=… TRANIBOR_LIVE_SERVICENOW_CLIENT_SECRET=… \
+TRANIBOR_LIVE_SERVICENOW_CLEANUP_USERNAME=… TRANIBOR_LIVE_SERVICENOW_CLEANUP_PASSWORD=… \
+  uv run pytest tests/live -q
+```
+
+First green run: 16 tests on a Personal Developer Instance of the Australia release (patch 7),
+2026-11-21, as a user holding only the procedure's role, by basic authentication and by OAuth client
+credentials; 8 more as a user holding `itil`. What the fake did not play and the instance showed, each now
+in the fake and under a unit test: a request item's states live on `task`; `sys_choice` refuses an `itil`
+user (403) and `sys_journal_field` answers it no row; a write the instance will not apply answers 200 with
+the old value; a journal header's date is in the reading user's time zone; a refused write's reason is in
+the error's `detail`.
 
 The image: `docker build -t servicenow-mcp plugins/servicenow/server` (non-root, port 8080, exec-form
 entry point). CI builds, signs and publishes it and writes its digest into `servers/servicenow.yaml`.

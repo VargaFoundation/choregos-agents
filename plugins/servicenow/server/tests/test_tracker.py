@@ -115,3 +115,74 @@ async def test_parse_event_verifies_then_normalises(mcp: Mcp) -> None:
     }
     bad = await mcp.call("tracker_parse_event", headers={"X-Choregos-Secret": "nope"}, body=body)
     assert bad == {"verified": False, "events": []}
+
+
+# ───── what a real instance does that the fake did not (an Australia PDI, 2026-11-21) ─────
+
+
+async def test_a_request_item_takes_the_task_states(mcp: Mcp, fake: FakeServiceNow) -> None:
+    """A real instance holds the request item's states on `task`: reading `sc_req_item` alone found none,
+    so every state of a request item was refused and it could not be closed."""
+    assert not [c for c in fake.rows("sys_choice") if c["name"] == "sc_req_item" and c["element"] == "state"]
+    moved = await mcp.call("tracker_set_state", key="RITM0010001", status="Work in Progress")
+    assert moved["changed"] is True
+    assert fake.tables["sc_req_item"][sys_id_of("RITM0010001")]["state"] == "2"
+    closed = await mcp.call("tracker_close", key="RITM0010001", close_notes="Delivered.")
+    assert closed == {"key": "RITM0010001", "closed": True, "state": "Closed Complete"}
+
+
+async def test_states_without_sys_choice_are_the_out_of_box_ones(mcp: Mcp, fake: FakeServiceNow) -> None:
+    """`sys_choice` refuses a user with `itil` and not the plugin's role (403): the states are then
+    ServiceNow's own, not an error on every transition."""
+    fake.choices_readable = False
+    result = await mcp.call("tracker_set_state", key="INC0010003", status="On Hold")
+    assert result["state"] == "On Hold"
+    assert fake.tables["incident"][sys_id_of("INC0010003")]["state"] == "3"
+    ritm = await mcp.call("tracker_close", key="RITM0010001")
+    assert ritm["state"] == "Closed Complete"
+
+
+async def test_an_unreadable_journal_does_not_write_twice(mcp: Mcp, fake: FakeServiceNow) -> None:
+    """`sys_journal_field` answers no row to a user without its read ACL: the work note's marker was never
+    found, and a replayed comment or status wrote a second note. The record's own journal fields are read."""
+    fake.journal_readable = False
+    fake.tz_offset_hours = -8  # the instance's users read Pacific time by default
+    sys_id = sys_id_of("INC0010011")
+    first = await mcp.call("tracker_comment", key="INC0010011", markdown="Run started.", action_key="c1")
+    again = await mcp.call("tracker_comment", key="INC0010011", markdown="Run started.", action_key="c1")
+    assert (first["written"], again["written"]) == (True, False)
+    assert [(await mcp.call("tracker_upsert_status", key="INC0010011", markdown="v1", marker="s"))["written"]
+            for _ in range(2)] == [True, False]  # fmt: skip
+    said = [(await mcp.call("add_comment", table="incident", sys_id=sys_id, text="We are on it."))["written"]
+            for _ in range(2)]  # fmt: skip
+    assert said == [True, False]
+    notes = [e for e in fake.journal(sys_id) if e["value"].startswith(("Run started.", "v1", "We are on it."))]
+    assert len(notes) == 3
+
+    item = await mcp.call("tracker_fetch_item", key="INC0010011")
+    ours = [c for c in item["comments"] if c["body"].startswith(("Run started.", "v1", "We are on it."))]
+    assert [c["marker"] for c in ours if c["visibility"] == "internal"] == ["c1", "s"]
+    assert [c["visibility"] for c in ours].count("customer") == 1
+    stored = {e["value"].split("\n")[0]: e["sys_created_on"] for e in notes}
+    # The header's local time, back in UTC: the same instant as the stored entry.
+    assert {c["body"].split("\n")[0]: c["ts"] for c in ours} == {
+        k: v.replace(" ", "T") + "Z" for k, v in stored.items()
+    }
+
+
+async def test_a_creation_whose_key_the_instance_dropped_says_so(mcp: Mcp, fake: FakeServiceNow) -> None:
+    """An `itil` user cannot create `correlation_id`: ServiceNow files the incident without it, and a
+    replay files a second one. The answer says so (the platform would retry a failure, filing more)."""
+    fake.unwritable = {("incident", "correlation_id"), ("change_request", "correlation_id")}
+    created = await mcp.call("tracker_create_item", title="Disk full", body="On db-prod-01.", action_key="k1")
+    assert created["created"] is True
+    assert created["idempotent"] is False
+    assert "incident.correlation_id" in created["warning"]
+    change = await mcp.call(
+        "create_change_request", short_description="Reboot", description="d", implementation_plan="i",
+        backout_plan="b", test_plan="t", action_key="c1",
+    )  # fmt: skip
+    assert change["idempotent"] is False
+    fake.unwritable = set()
+    kept = await mcp.call("tracker_create_item", title="Disk full", body="On db-prod-02.", action_key="k2")
+    assert "idempotent" not in kept

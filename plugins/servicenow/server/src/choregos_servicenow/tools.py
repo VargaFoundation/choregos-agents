@@ -27,8 +27,10 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
+import structlog
+
 from .client import MAX_ROWS, ServiceNowClient
-from .errors import Refused
+from .errors import NotApplied, Refused
 from .query import Filter, Op, Query, eq, like
 from .tables import (
     TABLE_FIELDS,
@@ -40,6 +42,7 @@ from .tables import (
 )
 
 _DATE = "%Y-%m-%d %H:%M:%S"
+log = structlog.get_logger("choregos_servicenow.tools")
 _MARKER = re.compile(r"^[A-Za-z0-9._:-]{1,80}$")
 _STOPWORDS = frozenset(
     {
@@ -100,6 +103,74 @@ def _text_group(table: str, terms: list[str]) -> list[Filter]:
     return [like(f, term) for term in terms for f in fields if f in TABLE_FIELDS[table]]
 
 
+_JOURNAL_HEADER = re.compile(
+    r"^(?P<on>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) - (?P<by>[^\n]*?) "
+    r"\((?P<kind>Work notes|Comments|Additional comments)\)$",
+    re.MULTILINE,
+)
+#: The label of each journal field in a rendered header (`Comments` on Australia; `Additional comments` is
+#: the field's own label, accepted too).
+_JOURNAL_KIND = {"work_notes": ("Work notes",), "comments": ("Comments", "Additional comments")}
+
+
+def _utc_offset(value: Any, label: Any) -> timedelta | None:
+    """The reading user's offset from UTC: a date's label minus its stored (UTC) value."""
+    try:
+        return datetime.strptime(str(label), _DATE) - datetime.strptime(str(value), _DATE)
+    except ValueError:
+        return None
+
+
+def parse_journal(table: str, sys_id: str, element: str, text: str, offset: timedelta | None) -> list[dict[str, Any]]:
+    """The entries of a rendered journal field (`<date> - <author> (Work notes)` then the text).
+
+    The entry has no sys_id there: its id is derived from the record, the field, the date and the text, so
+    the same entry keeps it. A date the user's format does not render as `yyyy-MM-dd HH:mm:ss` leaves the
+    text unsplit (one entry, no date): the markers it holds are still found."""
+    if not text.strip():
+        return []
+    headers = [m for m in _JOURNAL_HEADER.finditer(text) if m.group("kind") in _JOURNAL_KIND[element]]
+    if not headers:
+        return [_journal_entry(table, sys_id, element, text.strip(), None, None)]
+    entries = []
+    for i, header in enumerate(headers):
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        body = text[header.end() : end].strip("\n").rstrip()
+        on: str | None = None
+        if offset is not None:
+            on = (datetime.strptime(header.group("on"), _DATE) - offset).strftime(_DATE)
+        entries.append(_journal_entry(table, sys_id, element, body, on, header.group("by")))
+    return entries
+
+
+def _journal_entry(table: str, sys_id: str, element: str, value: str, on: str | None, by: str | None) -> dict[str, Any]:
+    return {
+        "sys_id": f"journal:{text_key(table, sys_id, element, on or '', value)}",
+        "element": element,
+        "value": value,
+        "created_on": on,
+        "created_by": by,
+    }
+
+
+def unkeyed(record: dict[str, Any]) -> dict[str, Any]:
+    """What a creation answers when the instance did not keep the `correlation_id` it was given.
+
+    A real instance drops a field the user cannot create silently (an `itil` user and `correlation_id`, on
+    an Australia instance): the record exists, and a replay of the same call files another one. Raising
+    would make the platform retry, and file one more each time; the answer says it instead."""
+    if str(record["fields"].get("correlation_id") or "").startswith("choregos:"):
+        return {}
+    log.warning("correlation_id_not_kept", table=record["table"], sys_id=record["sys_id"])
+    return {
+        "idempotent": False,
+        "warning": (
+            f"ServiceNow did not keep correlation_id on {record['table']}: a replay files a second record. "
+            f"Give the integration user's role the create right on {record['table']}.correlation_id."
+        ),
+    }
+
+
 class ServiceNowTools:
     def __init__(self, client: ServiceNowClient) -> None:
         self.client = client
@@ -151,6 +222,13 @@ class ServiceNowTools:
     async def journal_entries(
         self, table: str, sys_id: str, elements: tuple[str, ...], limit: int
     ) -> list[dict[str, Any]]:
+        """The journal of a record, newest first, from `sys_journal_field`; or, when that table answers
+        nothing, from the record's own journal fields (`journal_display`).
+
+        A real instance filters `sys_journal_field` rows silently for a user without its read ACL (an
+        integration user with `itil`, checked on an Australia instance): an empty answer then hides
+        every note, and an idempotence check that trusted it wrote the same note twice. The record's
+        `work_notes` and `comments`, rendered, are readable with the record."""
         check_sys_id(sys_id)
         query = Query("sys_journal_field").where(
             eq("element_id", sys_id),
@@ -159,6 +237,8 @@ class ServiceNowTools:
         )
         query.order("sys_created_on", descending=True)
         rows = await self.client.list_records("sys_journal_field", query, limit=limit)
+        if not rows:
+            return (await self._journal_of_record(table, sys_id, elements))[: max(1, limit)]
         return [
             {
                 "sys_id": r["fields"]["sys_id"],
@@ -169,6 +249,15 @@ class ServiceNowTools:
             }
             for r in rows
         ]
+
+    async def _journal_of_record(self, table: str, sys_id: str, elements: tuple[str, ...]) -> list[dict[str, Any]]:
+        record = await self.client.journal_display(table, sys_id, elements)
+        offset = _utc_offset(record["fields"].get("sys_updated_on"), record["display"].get("sys_updated_on"))
+        entries: list[dict[str, Any]] = []
+        for element in elements:
+            entries.extend(parse_journal(table, sys_id, element, str(record["display"].get(element) or ""), offset))
+        entries.sort(key=lambda e: str(e["created_on"] or ""), reverse=True)
+        return entries
 
     async def get_ci(self, sys_id: str | None = None, name: str | None = None) -> dict[str, Any]:
         if sys_id:
@@ -308,7 +397,15 @@ class ServiceNowTools:
                 await self.client.get(_REFERENCE_FIELDS[name], value, fields=["sys_id"])
         current = await self.client.get(table, sys_id)
         previous = {name: str(current["fields"].get(name) or "") for name in fields}
-        updated = await self.client.update(table, sys_id, dict(fields))
+        try:
+            updated = await self.client.update(table, sys_id, dict(fields))
+        except NotApplied as error:
+            # All or nothing: the fields ServiceNow did write go back to their previous values, so a refused
+            # call leaves the record as it found it (the platform runs no compensation for a failed write).
+            applied = {name: previous[name] for name in fields if name not in error.fields}
+            if applied:
+                await self.client.update(table, sys_id, applied)
+            raise
         return {
             "table": table,
             "sys_id": sys_id,
@@ -407,4 +504,4 @@ class ServiceNowTools:
         if assignment_group:
             values["assignment_group"] = assignment_group
         record = await self.client.create("change_request", values)
-        return {"created": True, "correlation_id": correlation, "record": record}
+        return {"created": True, "correlation_id": correlation, "record": record, **unkeyed(record)}
