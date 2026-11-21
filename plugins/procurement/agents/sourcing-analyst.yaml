@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Writes, never computes (core ADR 0198 §4): the memo restates numbers a deterministic step measured, ranks
+# Writes, never computes (core ADR 0202 §4): the memo restates numbers a deterministic step measured, ranks
 # by the measured total and lists what differs. It does not recommend: the award is a person's decision.
 catalogue:
   version: 1

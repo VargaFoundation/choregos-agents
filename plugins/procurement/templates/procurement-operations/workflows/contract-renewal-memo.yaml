@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # The memo of ONE contract the renewal campaign found ending soon, and a buyer's decision on it (core ADRs 0057
-# and 0198, plan PA-09). The campaign opens one of these per contract (`spawn:` of `contract-renewals.yaml`);
+# and 0202, plan PA-09). The campaign opens one of these per contract (`spawn:` of `contract-renewals.yaml`);
 # each is followed on its own: its own memo, its own attested decision, its own governed note, its own audit.
 #
 # - The numbers the memo may quote are the ones the campaign's job MEASURED for this contract:

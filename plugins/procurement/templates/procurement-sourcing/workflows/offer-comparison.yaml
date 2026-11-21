@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The comparison of supplier offers (core ADRs 0197 and 0198, plan Decision 4). A person hands the offers
+# The comparison of supplier offers (core ADRs 0201 and 0202, plan Decision 4). A person hands the offers
 # as files; a job turns them into text, an agent copies what they say into a structure, a job computes,
 # an agent writes the memo from the computed numbers, a job derives the approval tier from a threshold
 # written HERE (never a field: a field is editable by the person the threshold constrains, and a workflow

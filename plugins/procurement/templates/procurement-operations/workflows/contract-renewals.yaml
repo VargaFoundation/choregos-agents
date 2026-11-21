@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The renewal campaign (core ADRs 0057, 0198, plan PA-09). A schedule (project configuration, the template's
+# The renewal campaign (core ADRs 0057, 0202, plan PA-09). A schedule (project configuration, the template's
 # README gives the block) opens one work item; a job lists the contracts that end within the window; a
 # measured fact decides whether there is anything to do; one child work item per contract writes a memo and
 # gets a buyer's decision; the campaign resumes once every child is settled.

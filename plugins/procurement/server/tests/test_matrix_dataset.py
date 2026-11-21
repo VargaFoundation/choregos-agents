@@ -60,7 +60,7 @@ async def test_the_renewal_case_s_contract_is_one_of_the_four_the_scene_adds(
 
 
 def test_an_agreement_a_case_cites_stays_below_ten() -> None:
-    """The cases cite agreements 1 to 9 only, so they also hold on a core without S84-16 (`FA-0012` read as 12)."""
+    """The cases cite agreements 1 to 9 only, so they also hold on a core without S85-16 (`FA-0012` read as 12)."""
     from tranibor_purchasing.backends.fake import FakePurchasing
 
     numbers = [int(a.removeprefix("FA-")) for a in FakePurchasing("default").agreements]

@@ -1,6 +1,6 @@
 # The purchasing profile
 
-The contract between the `purchasing` server and its callers (core ADR 0198, plan S84 Decision 5): eleven
+The contract between the `purchasing` server and its callers (core ADR 0202, plan S85 Decision 5): eleven
 operations, named after what a purchasing department does and not after a vendor, served by a replaceable
 **backend**. A workflow names the connector `purchasing` and these operations; a new purchasing system is a
 new backend of the same server and no workflow changes. The descriptor, [`servers/purchasing.yaml`](../servers/purchasing.yaml),
@@ -10,7 +10,7 @@ declares exactly these operations, and `tests/test_descriptor.py` fails when the
 
 Two backends serve the profile. **Odoo 19 and 20** (`backend: odoo`; the mapping, the pages read and what is
 not supported are in [The Odoo backend](#the-odoo-backend)), proved here on hand-written exchanges and on a
-container in the core's S84-14. And the **seeded fake**: `PURCHASING_FAKE=1` (the descriptor's `fake.env`, never a
+container in the core's S85-14. And the **seeded fake**: `PURCHASING_FAKE=1` (the descriptor's `fake.env`, never a
 configuration value) selects it and `PURCHASING_FAKE_SCENE` picks its data; it is what the tests, the demo and the
 platform's evals run on. The configuration's `backend` is an enum of the backends the server serves, today
 `[odoo]`; any other value, or none, refuses to start.
@@ -36,7 +36,7 @@ platform's evals run on. The configuration's `backend` is an enum of the backend
   code. Listings are paged by `limit` (1 to 100, 100 by default) and `cursor` (opaque: the previous
   page's `next_cursor` handed back as it came, absent for the first page; any other value is `refused`), and
   answered as `{<rows>, total, next_cursor}` where `next_cursor` is `null` on the last page and `<rows>` is
-  `suppliers`, `agreements` or `contracts`. The core's job commands (S84-12) read exactly these shapes.
+  `suppliers`, `agreements` or `contracts`. The core's job commands (S85-12) read exactly these shapes.
 - **Dates** are `YYYY-MM-DD`; **amounts** are text with a decimal point and are never floats. The server
   computes a purchase request's line totals and total, exactly (two decimals); a caller's arithmetic is not
   trusted.
@@ -98,7 +98,7 @@ settings opens no connection: the first call does.
 Source: [`backends/odoo.py`](src/tranibor_purchasing/backends/odoo.py); tests: `tests/test_odoo_backend.py`.
 Written on 2026-11-20 from the vendor's pages below, before any code. No call to a real Odoo has been made yet:
 the exchanges in the tests are hand-written from these pages and from the vendor's source, and the live proof is
-the core's S84-14 on a container.
+the core's S85-14 on a container.
 
 **Which API, and why.** Odoo's external **JSON-2 API**: `POST /json/2/<model>/<method>`, a JSON body made of
 `ids` (records, absent for model-level methods), an optional `context` and the method's parameters **by name**,

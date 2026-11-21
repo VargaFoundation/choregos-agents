@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The purchasing MCP server, as the platform runs and governs it (ADR 0096, ADR 0198, plan S84 Decision 5).
+# The purchasing MCP server, as the platform runs and governs it (ADR 0096, ADR 0202, plan S85 Decision 5).
 # One server named after what it does, a fixed profile of eleven operations (server/PROFILE.md), and
 # replaceable backends. Source: ../server. A tool not listed in `operations` is refused by the platform.
 #

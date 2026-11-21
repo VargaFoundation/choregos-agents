@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The conversational half of a purchase request (core ADR 0198 §7, ADR 0158): it talks with an employee, reads the
+# The conversational half of a purchase request (core ADR 0202 §7, ADR 0158): it talks with an employee, reads the
 # framework agreements in force and the house policy, and PROPOSES the workflow `purchase-request`. It decides
 # nothing and writes nothing: the person confirms the proposal with their own right, and a buyer decides the route.
 # It is a `prompt` agent because an assistant's agent must be (a work-item agent such as `request-qualifier` is not).

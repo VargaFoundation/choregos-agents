@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The onboarding of a supplier (core ADRs 0197 and 0198, plan PA-07). A person hands the supplier's file as
+# The onboarding of a supplier (core ADRs 0201 and 0202, plan PA-07). A person hands the supplier's file as
 # documents and types who the supplier is; a job turns the documents into text, an agent copies the identity
 # and the dated documents into a structure, a job MEASURES what is missing, expired, different from what the
 # person typed and already held by the purchasing system, a person reviews the file, attested, and the record

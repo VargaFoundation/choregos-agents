@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# A purchase request, qualified (core ADR 0198, plan PA-08). An employee states a need, an estimated amount, a
+# A purchase request, qualified (core ADR 0202, plan PA-08). An employee states a need, an estimated amount, a
 # currency and the date it is needed by; an agent reads the request against the house policy and the framework
 # agreements in force and proposes ONE route; a buyer reviews, attested, and may change the route.
 #
@@ -94,7 +94,7 @@ transitions:
       - name: outputs_in
         params: { values: { route: [catalogue, framework_agreement, three_quotes, tender] } }
       # Every number of the proposal is one the requester typed.
-      # An agreement's id (`FA-0012`) is a reference, not an amount (core S84-16). The hole it opens stays open
+      # An agreement's id (`FA-0012`) is a reference, not an amount (core S85-16). The hole it opens stays open
       # in the free text (`rationale`, the brief): an amount glued to letters (`EUR-99999`) is not checked there,
       # and the buyer who reviews reads it.
       - name: numbers_measured

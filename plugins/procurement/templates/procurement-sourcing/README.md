@@ -37,7 +37,7 @@ rewritten on `computed`, and the analyst answers each point), or **close with no
   the basis of the files and the memo I read."
 - Nothing is written outside the platform.
 
-## What it does not guarantee (ADR 0198)
+## What it does not guarantee (ADR 0202)
 
 - **No OCR.** A scanned offer is not read; it counts in `files_unreadable` and stops at a person.
 - **No injection detector.** The protection is mechanical (nothing written outside the platform, number

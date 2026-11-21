@@ -1,7 +1,7 @@
 # Procurement plugin
 
 Compare supplier offers with agents that are never trusted with arithmetic. This is the content half of
-the plugin of the Tranibor core's ADR 0198 (`procurement is a plugin whose code half is a job image`).
+the plugin of the Tranibor core's ADR 0202 (`procurement is a plugin whose code half is a job image`).
 
 | Part | Path | What it is |
 |:--|:--|:--|
@@ -35,7 +35,7 @@ returns a bank detail. The profile is fixed in [`server/PROFILE.md`](server/PROF
   the **Odoo backend** (Odoo 19 and 20, through the vendor's JSON-2 API and an API key) on hand-written exchanges:
   every mapped operation, its error paths and its paging, typed filters, the replay of a write after a restart, no
   bank detail on any request, no key or traceback in any error.
-- **Does not prove**: anything against a running Odoo: the live proof is the core's S84-14 on a container. What
+- **Does not prove**: anything against a running Odoo: the live proof is the core's S85-14 on a container. What
   Odoo cannot say is *not supported* and written in [`server/PROFILE.md`](server/PROFILE.md): an agreement has no
   category, a contract has no value and is the same record as an agreement, a unit of measure is written in a
   line's name, and on Odoo 20 a supplier's registration number is not supported. Odoo 18 and older are not served.
@@ -74,7 +74,7 @@ The two agents, their two skills, their evals and the template `procurement-sour
 (extraction, the offer-reader, a computing step, the sourcing-analyst, a tier, a person's attested
 decision). The job image `procurement` that extracts and computes, and that the template's job steps name,
 comes in a later change. The `core` floor `0.28.0` is **provisional**: it
-stands for the first core release that carries the reserved input `attachments` (core ADR 0197) and is to
+stands for the first core release that carries the reserved input `attachments` (core ADR 0201) and is to
 be corrected to that release's version when the plugin is published.
 
 Both agents declare `memories: []`, no catalogue tool, no extension, no web and no MCP server: supplier
@@ -108,7 +108,7 @@ suppliers, What this memo does not cover.
 - **Does not guarantee**: that the lowest total deserves the award, anything about quality, references or
   risk, or that an instruction hidden in an offer cannot bend the wording of the memo.
 
-## What a reader must know (ADR 0198)
+## What a reader must know (ADR 0202)
 
 - **No OCR.** A scanned offer is not read; it stops at a person.
 - **No injection detector.** The agents are told to treat an offer as data and to report an instruction,

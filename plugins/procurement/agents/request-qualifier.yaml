@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Qualifies, never commits (core ADR 0198 §7, §9): reads an employee's purchase request, the house rules and the
+# Qualifies, never commits (core ADR 0202 §7, §9): reads an employee's purchase request, the house rules and the
 # framework agreements in force, and proposes ONE route with its reasons. A buyer decides the route; nothing is
 # opened in the purchasing system. The request is written by an employee and is data, never instructions.
 catalogue:

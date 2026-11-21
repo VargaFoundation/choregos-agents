@@ -174,7 +174,7 @@ def test_the_amount_the_agent_writes_is_the_one_the_person_typed() -> None:
     assert params["sources"] == ["fields"]
     assert sorted(params["outputs"]) == ["brief_markdown", "qualification"]
     assert _score(_outputs(), fields=TYPED, calls=LOOKED) == {}
-    # An agreement numbered 10 or more is a reference, not an unmeasured amount (core S84-16).
+    # An agreement numbered 10 or more is a reference, not an unmeasured amount (core S85-16).
     assert params["identifiers"] == "skip"
     twelfth = _outputs(agreement_id="FA-0012", rationale="Agreement FA-0012 covers office supplies.")
     assert "numbers_measured" not in _score(twelfth, fields=TYPED, calls=LOOKED)

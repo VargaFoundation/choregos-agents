@@ -84,7 +84,7 @@ _IBAN_SHAPE = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]{2}\d{2}(?:[ -]?[A-Za-z0-9]){
 
 def refuse_bank_details(value: Any, where: str = "arguments") -> None:
     """Refuse a call that carries a bank detail: an argument or field named like one, or a text shaped like
-    an IBAN. Payment data is a human process (core ADR 0198); the profile neither takes nor returns it."""
+    an IBAN. Payment data is a human process (core ADR 0202); the profile neither takes nor returns it."""
     if isinstance(value, dict):
         for key, item in value.items():
             if _BANK_NAME.search(str(key)):

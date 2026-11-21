@@ -324,7 +324,7 @@ async def test_scene_expiring_contracts(scene: Callable[[str], World]) -> None:
 
 
 async def test_the_shapes_the_cores_job_commands_expect(scene: Callable[[str], World]) -> None:
-    """S84-12 reads `{suppliers, next_cursor}` and `{contracts, next_cursor}`, pages with `limit` and an opaque
+    """S85-12 reads `{suppliers, next_cursor}` and `{contracts, next_cursor}`, pages with `limit` and an opaque
     `cursor`, and needs `id` and `name` of a supplier, `id`, `supplier_id`, `title` and `end_date` of a contract."""
     world = scene("expiring-contracts")
     suppliers = await world.mcp.call("search_suppliers", name="a", country="NL", limit=1)

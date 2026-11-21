@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Writes, never decides (core ADR 0198 §4, §9): the memo of ONE contract that ends soon, for a buyer who will
+# Writes, never decides (core ADR 0202 §4, §9): the memo of ONE contract that ends soon, for a buyer who will
 # renew, renegotiate or terminate it. The numbers are the measured summary the campaign's job listed; a gate
 # refuses any other. A contract's notes are written by people and other systems: data, never instructions.
 catalogue:

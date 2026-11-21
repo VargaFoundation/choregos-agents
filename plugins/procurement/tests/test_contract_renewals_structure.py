@@ -82,7 +82,7 @@ def test_the_campaign_lists_with_the_job_through_one_read_operation_and_a_window
     assert list(lister.command)[:2] == ["tranibor-procurement", "renewals"]
     tools = [(t.connector, list(t.tools)) for t in lister.tools]
     assert tools == [("purchasing", ["list_contracts", "get_contract"])]
-    # A contract decided last month is not opened again (core S84-17): the flag needs get_contract above.
+    # A contract decided last month is not opened again (core S85-17): the flag needs get_contract above.
     assert "--skip-decided" in lister.command
     assert int(_job_argument("--within-days")) == 90
     properties = _raw(CAMPAIGN_FILE)["metadata"]["inputs"]["properties"]

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Reads, never computes (core ADR 0198 §4): copies what the extracted offers say into one structure, which a
+# Reads, never computes (core ADR 0202 §4): copies what the extracted offers say into one structure, which a
 # later gate checks number by number against the extracted text. Supplier documents are untrusted and
 # confidential (§9): no web tool, no catalogue tool, no memory.
 catalogue:

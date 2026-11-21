@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Reads, never judges (core ADR 0198 §3, §8, §9): copies who a supplier says it is and which dated documents it
+# Reads, never judges (core ADR 0202 §3, §8, §9): copies who a supplier says it is and which dated documents it
 # handed into one structure. A deterministic step then measures what is missing, expired, different or
 # duplicated. Supplier documents are untrusted and confidential: no web tool, no catalogue tool, no memory.
 catalogue:

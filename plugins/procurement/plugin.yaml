@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The procurement plugin (core ADR 0198): the two agents of the comparison of supplier offers. One copies
+# The procurement plugin (core ADR 0202): the two agents of the comparison of supplier offers. One copies
 # what the offers say into a structure, the other writes the memo from numbers a deterministic step measured.
 # The template `procurement-sourcing` runs them; the job image that extracts and computes comes in a later change.
 # 0.2.0 adds the MCP server `purchasing` (a fixed profile of eleven operations, served by Odoo 19 and 20 and by a
@@ -19,7 +19,7 @@ metadata:
     measured total, lists what differs and recommends nobody.
   homepage: https://github.com/graalsystems/tranibor-agents
   # PROVISIONAL floor: 0.28.0 is the first core release expected to carry the reserved input `attachments`
-  # (core ADR 0197). Correct it to that release's actual version when this plugin is published.
+  # (core ADR 0201). Correct it to that release's actual version when this plugin is published.
   core: ">=0.28.0,<1.0.0"
 requires:
   plugins: []

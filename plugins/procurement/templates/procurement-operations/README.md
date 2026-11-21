@@ -51,7 +51,7 @@ duplicate stops at a person.
 - Nothing is written to the purchasing system before a review and a two-person approval.
 - The only action is the creation; it has a compensation (archiving the record) declared by the server.
 
-## What it does not guarantee (ADR 0198)
+## What it does not guarantee (ADR 0202)
 
 - **No OCR.** A scanned document is not read; it counts in `files_unreadable` and stops at a person.
 - **No authentication of documents.** The check measures presence, dates, identity and duplicates; that a
@@ -146,6 +146,6 @@ in the purchasing system**: launching a consultation or an order is the buyer's 
   writes it without digits.
 - **Limits that follow.** The agent writes no threshold of the policy and no figure of an agreement (they are
   not measured): it cites the policy by the title of its section. An agreement's id (`FA-0012`) is read as a
-  reference, not an amount (`identifiers: skip`, core S84-16); the price of that is that an amount glued to
+  reference, not an amount (`identifiers: skip`, core S85-16); the price of that is that an amount glued to
   letters (`EUR-99999`) in the brief is not checked either.
 - **Not proved**: what a model writes, or that the route is right: the evals are live and CI does not play them.

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""No operation takes or returns a bank detail (core ADR 0198)."""
+"""No operation takes or returns a bank detail (core ADR 0202)."""
 
 from __future__ import annotations
 
