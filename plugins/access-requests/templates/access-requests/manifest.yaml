@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: choregos/v1
+kind: Template
+metadata:
+  name: access-requests
+  version: 0.2.0
+  display: Access requests and IT desk
+  description: >-
+    The requests people send someone all day — access to a tool, a place in a group, a bug on a
+    solution — become work items, from a trigger fed by a chat channel or a mailbox, from the console or
+    from an MCP client. A desk agent reads each one with the access catalogue and the directory, and
+    sorts it: an access request opens one grant per group, each a governed action the tool's approvers
+    decide, re-authenticated, before the directory is written — never the person it grants nor who
+    asked; a bug report is qualified and filed in the solution's project, whatever its tracker, once a
+    person approves; anything else, or anything unsure, goes to a person. The agent writes nothing.
+requires:
+  # The project: its work items live in the platform, so a trigger can open them (ADR 0113).
+  connectors:
+    tracker: internal
+  # The organisation: the connector the grants call, by NAME, and its capability.
+  org_connectors:
+    directory: identity
+defaults:
+  workflows: [./workflows/access-request.yaml, ./workflows/access-grant.yaml, ./workflows/bug-report.yaml]
+  default_workflow: access-request
+  policy: preset:solo
+  # Installed in the organisation when a project is born from the template — never rewritten if they
+  # are already there: the organisation edits its catalogue as a new version of the skill.
+  skills: [./skills/request-desk, ./skills/access-catalogue, ./skills/solutions]
+  agents: [./agents/request-desk.yaml]
+inputs: []
+steps: []

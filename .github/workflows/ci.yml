@@ -9,12 +9,11 @@ permissions:
   contents: read
 
 env:
-  # The core whose validator, packer, eval matrix and publication library every job runs: a main commit of
-  # graalsystems/tranibor, after the rename to Tranibor (ADR 0176). publish.yml pins the same commit.
-  # TEMPORARY, integration branch of the procurement plugin only (core PLAN-2026-11-20-procurement §4):
-  # a commit of the core's branch that carries metadata.attachments, the reserved input and the gate
-  # output_sections, and the job commands of lot 2 (S85-03 to S85-15). Story PA-04 moves this and publish.yml together to the release that ships them.
-  CHOREGOS_REF: 3327e2b3bd80d9012f1aecbfb7ae5df462bb1320
+  # The core whose validator, packer, eval matrix and publication library every job runs: the commit of
+  # the graalsystems/tranibor v0.28.1 tag (the release that ships ADRs 0196-0202: what access-requests
+  # 0.2.0 and microsoft-365-desk 0.1.0 need, and procurement's attachments, output_sections and job
+  # commands). publish.yml pins the same commit.
+  CHOREGOS_REF: 3d0944a91200a908f2a9950300761181dbb1ebea
 
 jobs:
   servers:
@@ -74,6 +73,69 @@ jobs:
           done
           [ "$found" = 1 ] || echo "no plugin yet"
 
+  templates:
+    # Each plugin's `tests/` (a template's own checks), played from a core checkout at CHOREGOS_REF:
+    # `tranibor plugin validate` reads a template's manifest only, these read what it ships the way the
+    # platform does (its workflows, the core's template conformance checks, the fan-out and the actions).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play each plugin's template tests against the core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/tests; do
+            [ -d "$dir" ] || continue
+            found=1
+            echo "::group::$dir"
+            TRANIBOR_CORE="$PWD" uv run --frozen pytest -q -p no:cacheprovider "$dir"
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no template tests yet"
+
+  e2e:
+    # Each plugin's `e2e/` tests run on the core's e2e bench (Temporal in skipped time, the API in-process,
+    # fakes): copied into the core's `tests/e2e/`, at CHOREGOS_REF. `microsoft-365-desk` plays its
+    # template on its own server there.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play each plugin's end-to-end tests on the core's bench
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/e2e; do
+            [ -d "$dir" ] || continue
+            found=1
+            plugin=$(basename "$(dirname "$dir")")
+            echo "::group::$plugin"
+            cp "$dir"/test_*.py tests/e2e/
+            M365_DESK_PLUGIN_DIR="$GITHUB_WORKSPACE/agents/plugins/microsoft-365-desk" \
+              uv run --frozen pytest -q -p no:cacheprovider $(for f in "$dir"/test_*.py; do echo "tests/e2e/$(basename "$f")"; done)
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no end-to-end tests yet"
+
   matrix:
     # The matrix cases of every plugin whose server ships `tests/test_matrix_cases.py` (`contents.matrix_cases`,
     # the core's agent-case format; one pytest per plugin), played as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
@@ -108,46 +170,20 @@ jobs:
           done
           [ "$found" = 1 ] || { echo "::error::no plugin ships matrix cases"; exit 1; }
 
-  templates:
-    # The template of the procurement plugin keeps its guarantees: its workflow parsed by the core and its
-    # gates asserted by name and parameters, and its eval cases played through the core's real gates
-    # (`plugins/*/tests`, run from the core checkout, one pytest per plugin). Removing a guarantee from
-    # a workflow file turns this job red before the core ships the archive.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { path: agents }
-      - uses: actions/checkout@v4
-        with:
-          repository: graalsystems/tranibor
-          ref: ${{ env.CHOREGOS_REF }}
-          path: core
-      - uses: astral-sh/setup-uv@v6
-      - name: structure tests and eval cases
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd core
-          uv sync --frozen
-          found=0
-          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/tests; do
-            [ -d "$dir" ] || continue
-            found=1
-            echo "::group::$dir"
-            PYTHONDONTWRITEBYTECODE=1 uv run --frozen pytest -q -p no:cacheprovider "$dir"
-            echo "::endgroup::"
-          done
-          [ "$found" = 1 ] || echo "no template tests yet"
-
   secrets:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      # The history this run brings: a pull request's own commits (base..head), or main's whole history on
+      # a push. Not `--all`: a finding on another open branch would turn every pull request red; that
+      # branch's own pull request scans it.
       - name: gitleaks
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || github.sha }}
         run: |
           docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 \
-            detect --source /repo --redact --exit-code 1 --no-banner
+            detect --source /repo --redact --exit-code 1 --no-banner --log-opts="$RANGE"
 
   dco:
     if: github.event_name == 'pull_request'
@@ -194,7 +230,7 @@ jobs:
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
-    needs: [servers, plugins, matrix, templates, secrets, dco, publication]
+    needs: [servers, plugins, templates, e2e, matrix, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:

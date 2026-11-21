@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# The access-requests plugin (ADR 0181 of the core: a trade ships as a plugin): the requests a technical
+# lead or an IT desk receives all day — access to a tool, a place in a group, a bug — sorted by an agent
+# that only reads, every write approved by the people it belongs to. Ships the template fed by a trigger;
+# the `microsoft-365-desk` plugin ships its twin on its own mailbox and Teams tracker (same agent, skills
+# and governed writes; `tests/` keeps them from drifting apart).
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: access-requests
+  version: 0.2.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: >-
+    Requests in plain words — access to a tool, a place in a group, a bug — become work items. An agent
+    sorts each one; the tool's approvers decide each grant, never the person it grants nor who asked; a
+    bug is filed in its solution's project, whatever its tracker; the rest goes to a person.
+  homepage: https://github.com/graalsystems/tranibor-agents
+  # 0.2.0 needs the core release with approvers read from the work item and `approval.excluded` (ADR 0196)
+  # and the `work_item.file` effect (ADR 0197), announced as 0.28.0; 0.1.0 stays for older cores. The
+  # template machinery besides: fan-out (`spawn:`), the `output_schema` guarantee, the `entra` identity
+  # connector, HTTP triggers. `tests/` plays both templates against a core checkout.
+  core: ">=0.28.0,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+  # The organisation connector the grants call, by name, and its capability (as the template declares it).
+  org_connectors:
+    directory: identity
+contents:
+  templates: [templates/access-requests]

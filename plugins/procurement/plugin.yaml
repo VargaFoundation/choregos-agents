@@ -20,7 +20,7 @@ metadata:
   homepage: https://github.com/graalsystems/tranibor-agents
   # PROVISIONAL floor: 0.28.0 is the first core release expected to carry the reserved input `attachments`
   # (core ADR 0201). Correct it to that release's actual version when this plugin is published.
-  core: ">=0.28.0,<1.0.0"
+  core: ">=0.28.1,<1.0.0"
 requires:
   plugins: []
   connectors: {}
