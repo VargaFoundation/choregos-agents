@@ -316,7 +316,7 @@ async def test_a_mail_asking_for_the_crm_is_granted_and_answered_in_its_thread(
                 await client.get(
                     f"/api/v1/projects/{project['id']}/actions", params={"status": "pending_approval"}
                 )
-            ).json()
+            ).json()["items"]
             return [a for a in listed if a["kind"] == "access.grant"]
 
         (grant,) = await _wait(pending, "access.grant pending")
@@ -363,7 +363,8 @@ async def test_a_mail_asking_for_the_crm_is_granted_and_answered_in_its_thread(
     parent_row = await platform.work_item(key)
     assert (child_row.state, parent_row.state) == ("granted", "settled")
     assert child_row.fields["requester"] == LEA and child_row.fields["request"] == key, child_row.fields
-    actions = (await client.get(f"/api/v1/projects/{project['id']}/actions")).json()
+    # A page since the core's ADR 0206 (graalsystems/tranibor 0.28.1): `items`, then `meta.next_cursor`.
+    actions = (await client.get(f"/api/v1/projects/{project['id']}/actions")).json()["items"]
     assert sorted((a["kind"], a["status"]) for a in actions) == [
         ("access.grant", "succeeded"),
         ("desk.reply", "succeeded"),
@@ -450,6 +451,7 @@ async def test_a_teams_mention_is_answered_by_a_desk_person_in_its_thread(
         sent
     )
     assert "The policy is on the intranet, page Expenses." in sent["activity"]["text"], sent
-    actions = (await client.get(f"/api/v1/projects/{project['id']}/actions")).json()
+    # A page since the core's ADR 0206 (graalsystems/tranibor 0.28.1): `items`, then `meta.next_cursor`.
+    actions = (await client.get(f"/api/v1/projects/{project['id']}/actions")).json()["items"]
     assert [(a["kind"], a["status"]) for a in actions] == [("desk.answer", "succeeded")], actions
     await server.close()
