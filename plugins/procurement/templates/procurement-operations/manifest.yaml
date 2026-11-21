@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: choregos/v1
+kind: Template
+metadata:
+  name: procurement-operations
+  version: 0.1.0
+  display: Procurement · supplier onboarding under approval
+  description: >-
+    A supplier to onboard is a work item: a person hands its file as documents. A job reads them into text,
+    an agent copies the supplier's identity and its dated documents into a structure, a job measures what is
+    missing, expired, different from the request or already held, and a person of the group supplier-data
+    reviews the file, attested. The record is created in the purchasing system as one governed action that
+    two people of that group approve, re-authenticated. No bank detail is handled.
+requires:
+  connectors:
+    tracker: internal
+  # The organisation connector the plugin's install creates for its server `purchasing`, by name, and its
+  # capability (as the ServiceNow template names its own).
+  org_connectors:
+    purchasing: mcp
+defaults:
+  workflows: [./workflows/supplier-onboarding.yaml, ./workflows/purchase-request.yaml, ./workflows/contract-renewals.yaml, ./workflows/contract-renewal-memo.yaml]
+  default_workflow: supplier-onboarding
+  # A closed sandbox: supplier documents are confidential and untrusted.
+  policy: preset:regulated
+  # The agents `supplier-file-checker` and `request-qualifier` come with the plugin itself.
+  # The house purchasing rules the agent `request-qualifier` reads: the organisation fills this base with its
+  # own policy (no source here: a template cannot know where it lives), served as files.
+  knowledge:
+    - slug: purchasing-policy
+      name: Purchasing policy
+      description: The organisation's own purchasing rules (which categories are bought from a catalogue, from which amount quotes or a tender are required). Empty until the organisation adds its documents.
+      serving_mode: files
+inputs: []
+steps: []

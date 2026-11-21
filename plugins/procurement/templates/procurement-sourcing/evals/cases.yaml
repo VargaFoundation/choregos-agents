@@ -1,0 +1,468 @@
+# SPDX-License-Identifier: Apache-2.0
+# Eval cases of the template `procurement-sourcing`, scored by tests/test_template_evals.py with the
+# gates `offer-comparison.yaml` declares: `t-read` for the reader's `offers_structured`, `t-memo` for the
+# analyst's `comparison_memo_markdown`. A case is `{id, expect: accept | refuse, why, <output>}`; a refused
+# case also names the gate that must refuse it (`fails`) and a word of its reason (`reason_contains`).
+# `documents` are the measured documents the gates read as sources. Every name and amount is invented.
+documents:
+  offers_text:
+    files:
+    - name: alderbrook-offer.pdf
+      type: pdf
+      text: 'Alderbrook Supply. Offer for steel brackets. Steel bracket: 25 pc at 500.02 EUR, line total 12500.50
+        EUR. Total 12500.50 EUR. Payment in 30 days. Delivery in 14 days. Valid until 2026-12-31. Transport is excluded.'
+    - name: brightfield-offer.docx
+      type: docx
+      text: 'Brightfield Trading. Offer for steel brackets. Steel bracket: 25 pc at 471.20 EUR, line total 11780.00
+        EUR. Total 11790.00 EUR. Payment in 45 days. Delivery in 21 days. Installation is excluded.'
+  comparison:
+    suppliers:
+    - name: Brightfield Trading
+      currency: EUR
+      files:
+      - brightfield-offer.docx
+      lines_total: 11780.0
+      lines_without_total: 0
+      line_mismatches: []
+      total_mismatch:
+        expected: 11780.0
+        written: 11790.0
+      stated_total: 11790.0
+      total: 11790.0
+    - name: Alderbrook Supply
+      currency: EUR
+      files:
+      - alderbrook-offer.pdf
+      lines_total: 12500.5
+      lines_without_total: 0
+      line_mismatches: []
+      total_mismatch: null
+      stated_total: 12500.5
+      total: 12500.5
+    ranking:
+    - rank: 1
+      supplier: Brightfield Trading
+      total: 11790.0
+    - rank: 2
+      supplier: Alderbrook Supply
+      total: 12500.5
+    lowest_total: 11790.0
+    highest_total: 12500.5
+    spread: 710.5
+    spread_ratio: 0.06
+  award_basis:
+    totals:
+      Brightfield Trading: 11790.0
+      Alderbrook Supply: 12500.5
+    lowest_total: 11790.0
+    highest_total: 12500.5
+    spread: 710.5
+    mismatches:
+    - supplier: Brightfield Trading
+      kind: stated_total
+      expected: 11780.0
+      written: 11790.0
+offers_structured:
+- id: clean-two-offers
+  expect: accept
+  why: Every number is one the text writes; a missing validity date is null.
+  offers_structured:
+    suppliers:
+    - name: Alderbrook Supply
+      currency: EUR
+      files:
+      - alderbrook-offer.pdf
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 500.02
+        line_total: 12500.5
+      stated_total: 12500.5
+      payment_terms_days: 30
+      delivery_days: 14
+      validity_date: '2026-12-31'
+      exclusions:
+      - Transport
+    - name: Brightfield Trading
+      currency: EUR
+      files:
+      - brightfield-offer.docx
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 471.2
+        line_total: 11780
+      stated_total: 11790
+      payment_terms_days: 45
+      delivery_days: 21
+      validity_date: null
+      exclusions:
+      - Installation
+    unassigned_files: []
+- id: unit-price-absent-from-the-text
+  expect: refuse
+  why: 510.00 is written by no offer.
+  fails: numbers_measured
+  reason_contains: '510'
+  offers_structured:
+    suppliers:
+    - name: Alderbrook Supply
+      currency: EUR
+      files:
+      - alderbrook-offer.pdf
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 500.02
+        line_total: 12500.5
+      stated_total: 12500.5
+      payment_terms_days: 30
+      delivery_days: 14
+      validity_date: '2026-12-31'
+      exclusions:
+      - Transport
+    - name: Brightfield Trading
+      currency: EUR
+      files:
+      - brightfield-offer.docx
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 510.0
+        line_total: 11780
+      stated_total: 11790
+      payment_terms_days: 45
+      delivery_days: 21
+      validity_date: null
+      exclusions:
+      - Installation
+    unassigned_files: []
+- id: computed-total-not-in-the-text
+  expect: refuse
+  why: 24290.50 adds the two offers; no file writes it. The reader copies, it never computes.
+  fails: numbers_measured
+  reason_contains: '24290.5'
+  offers_structured:
+    suppliers:
+    - name: Alderbrook Supply
+      currency: EUR
+      files:
+      - alderbrook-offer.pdf
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 500.02
+        line_total: 12500.5
+      stated_total: 24290.5
+      payment_terms_days: 30
+      delivery_days: 14
+      validity_date: '2026-12-31'
+      exclusions:
+      - Transport
+    - name: Brightfield Trading
+      currency: EUR
+      files:
+      - brightfield-offer.docx
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 471.2
+        line_total: 11780
+      stated_total: 11790
+      payment_terms_days: 45
+      delivery_days: 21
+      validity_date: null
+      exclusions:
+      - Installation
+    unassigned_files: []
+- id: extra-key
+  expect: refuse
+  why: A recommendation is not part of the structure.
+  fails: output_schema
+  reason_contains: recommended
+  offers_structured:
+    suppliers:
+    - name: Alderbrook Supply
+      currency: EUR
+      files:
+      - alderbrook-offer.pdf
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 500.02
+        line_total: 12500.5
+      stated_total: 12500.5
+      payment_terms_days: 30
+      delivery_days: 14
+      validity_date: '2026-12-31'
+      exclusions:
+      - Transport
+    - name: Brightfield Trading
+      currency: EUR
+      files:
+      - brightfield-offer.docx
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 471.2
+        line_total: 11780
+      stated_total: 11790
+      payment_terms_days: 45
+      delivery_days: 21
+      validity_date: null
+      exclusions:
+      - Installation
+    unassigned_files: []
+    recommended: Brightfield Trading
+- id: currency-not-a-code
+  expect: refuse
+  why: A currency is three upper-case letters or null.
+  fails: output_schema
+  offers_structured:
+    suppliers:
+    - name: Alderbrook Supply
+      currency: euro
+      files:
+      - alderbrook-offer.pdf
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 500.02
+        line_total: 12500.5
+      stated_total: 12500.5
+      payment_terms_days: 30
+      delivery_days: 14
+      validity_date: '2026-12-31'
+      exclusions:
+      - Transport
+    - name: Brightfield Trading
+      currency: EUR
+      files:
+      - brightfield-offer.docx
+      lines:
+      - label: Steel bracket
+        quantity: 25
+        unit: pc
+        unit_price: 471.2
+        line_total: 11780
+      stated_total: 11790
+      payment_terms_days: 45
+      delivery_days: 21
+      validity_date: null
+      exclusions:
+      - Installation
+    unassigned_files: []
+memo:
+- id: clean-memo
+  expect: accept
+  why: Seven sections in order; every amount as comparison writes it; every number of the award basis is written.
+  memo: |
+    ## Summary
+    Brightfield Trading ranks first at 11790.00 EUR, then Alderbrook Supply at 12500.50 EUR. The spread is 710.50 EUR.
+
+    ## Files read
+    - alderbrook-offer.pdf: Alderbrook Supply.
+    - brightfield-offer.docx: Brightfield Trading.
+    - No file is left without a supplier.
+
+    ## Price comparison
+    | Rank | Supplier | Total (EUR) |
+    |:--|:--|--:|
+    | 1 | Brightfield Trading | 11790.00 |
+    | 2 | Alderbrook Supply | 12500.50 |
+
+    The spread between the highest and the lowest total is 710.50 EUR.
+
+    ## Differences and exclusions
+    - Alderbrook Supply: payment in 30 days, delivery in 14 days; "Transport is excluded".
+    - Brightfield Trading: payment in 45 days, delivery in 21 days; "Installation is excluded".
+
+    ## Checks that failed
+    - Brightfield Trading, stated_total: the lines add up to 11780.00 EUR, the offer writes 11790.00 EUR.
+
+    ## Questions for the suppliers
+    - Brightfield Trading: which of 11780.00 EUR and 11790.00 EUR is the total of the offer?
+    - Alderbrook Supply: what would transport cost?
+
+    ## What this memo does not cover
+    Quality, references and financial standing. The award is a person's decision.
+- id: number-not-in-the-comparison
+  expect: refuse
+  why: 4.8% is a computed percentage; no source holds it.
+  fails: numbers_measured
+  reason_contains: '4.8'
+  memo: |
+    ## Summary
+    Brightfield Trading ranks first at 11790.00 EUR, then Alderbrook Supply at 12500.50 EUR. The spread is 710.50 EUR, and Brightfield Trading saves 4.8% against the other.
+
+    ## Files read
+    - alderbrook-offer.pdf: Alderbrook Supply.
+    - brightfield-offer.docx: Brightfield Trading.
+    - No file is left without a supplier.
+
+    ## Price comparison
+    | Rank | Supplier | Total (EUR) |
+    |:--|:--|--:|
+    | 1 | Brightfield Trading | 11790.00 |
+    | 2 | Alderbrook Supply | 12500.50 |
+
+    The spread between the highest and the lowest total is 710.50 EUR.
+
+    ## Differences and exclusions
+    - Alderbrook Supply: payment in 30 days, delivery in 14 days; "Transport is excluded".
+    - Brightfield Trading: payment in 45 days, delivery in 21 days; "Installation is excluded".
+
+    ## Checks that failed
+    - Brightfield Trading, stated_total: the lines add up to 11780.00 EUR, the offer writes 11790.00 EUR.
+
+    ## Questions for the suppliers
+    - Brightfield Trading: which of 11780.00 EUR and 11790.00 EUR is the total of the offer?
+    - Alderbrook Supply: what would transport cost?
+
+    ## What this memo does not cover
+    Quality, references and financial standing. The award is a person's decision.
+- id: award-basis-mismatch-left-unwritten
+  expect: refuse
+  why: 'The mismatch is described without its expected figure, 11780.00: must_quote refuses it.'
+  fails: numbers_measured
+  reason_contains: to quote
+  memo: |
+    ## Summary
+    Brightfield Trading ranks first at 11790.00 EUR, then Alderbrook Supply at 12500.50 EUR. The spread is 710.50 EUR.
+
+    ## Files read
+    - alderbrook-offer.pdf: Alderbrook Supply.
+    - brightfield-offer.docx: Brightfield Trading.
+    - No file is left without a supplier.
+
+    ## Price comparison
+    | Rank | Supplier | Total (EUR) |
+    |:--|:--|--:|
+    | 1 | Brightfield Trading | 11790.00 |
+    | 2 | Alderbrook Supply | 12500.50 |
+
+    The spread between the highest and the lowest total is 710.50 EUR.
+
+    ## Differences and exclusions
+    - Alderbrook Supply: payment in 30 days, delivery in 14 days; "Transport is excluded".
+    - Brightfield Trading: payment in 45 days, delivery in 21 days; "Installation is excluded".
+
+    ## Checks that failed
+    - Brightfield Trading, stated_total: the lines do not add up to the total the offer writes.
+
+    ## Questions for the suppliers
+    - Brightfield Trading: which is the total of the offer?
+    - Alderbrook Supply: what would transport cost?
+
+    ## What this memo does not cover
+    Quality, references and financial standing. The award is a person's decision.
+- id: section-missing
+  expect: refuse
+  why: No section Questions for the suppliers.
+  fails: output_sections
+  reason_contains: Questions for the suppliers
+  memo: |
+    ## Summary
+    Brightfield Trading ranks first at 11790.00 EUR, then Alderbrook Supply at 12500.50 EUR. The spread is 710.50 EUR.
+
+    ## Files read
+    - alderbrook-offer.pdf: Alderbrook Supply.
+    - brightfield-offer.docx: Brightfield Trading.
+    - No file is left without a supplier.
+
+    ## Price comparison
+    | Rank | Supplier | Total (EUR) |
+    |:--|:--|--:|
+    | 1 | Brightfield Trading | 11790.00 |
+    | 2 | Alderbrook Supply | 12500.50 |
+
+    The spread between the highest and the lowest total is 710.50 EUR.
+
+    ## Differences and exclusions
+    - Alderbrook Supply: payment in 30 days, delivery in 14 days; "Transport is excluded".
+    - Brightfield Trading: payment in 45 days, delivery in 21 days; "Installation is excluded".
+
+    ## Checks that failed
+    - Brightfield Trading, stated_total: the lines add up to 11780.00 EUR, the offer writes 11790.00 EUR.
+
+    ## What this memo does not cover
+    Quality, references and financial standing. The award is a person's decision.
+- id: sections-out-of-order
+  expect: refuse
+  why: Price comparison comes before Files read.
+  fails: output_sections
+  reason_contains: out of order
+  memo: |
+    ## Summary
+    Brightfield Trading ranks first at 11790.00 EUR, then Alderbrook Supply at 12500.50 EUR. The spread is 710.50 EUR.
+
+    ## Price comparison
+    | Rank | Supplier | Total (EUR) |
+    |:--|:--|--:|
+    | 1 | Brightfield Trading | 11790.00 |
+    | 2 | Alderbrook Supply | 12500.50 |
+
+    The spread between the highest and the lowest total is 710.50 EUR.
+
+    ## Files read
+    - alderbrook-offer.pdf: Alderbrook Supply.
+    - brightfield-offer.docx: Brightfield Trading.
+    - No file is left without a supplier.
+
+    ## Differences and exclusions
+    - Alderbrook Supply: payment in 30 days, delivery in 14 days; "Transport is excluded".
+    - Brightfield Trading: payment in 45 days, delivery in 21 days; "Installation is excluded".
+
+    ## Checks that failed
+    - Brightfield Trading, stated_total: the lines add up to 11780.00 EUR, the offer writes 11790.00 EUR.
+
+    ## Questions for the suppliers
+    - Brightfield Trading: which of 11780.00 EUR and 11790.00 EUR is the total of the offer?
+    - Alderbrook Supply: what would transport cost?
+
+    ## What this memo does not cover
+    Quality, references and financial standing. The award is a person's decision.
+- id: decimal-comma-amount
+  expect: refuse
+  why: '12 500,50 reads as 12500 and 50, and the memo never writes 12500.50: the analyst is told never to do that.'
+  fails: numbers_measured
+  reason_contains: measured nowhere
+  memo: |
+    ## Summary
+    Brightfield Trading ranks first at 11790.00 EUR, then Alderbrook Supply at 12 500,50 EUR. The spread is 710.50 EUR.
+
+    ## Files read
+    - alderbrook-offer.pdf: Alderbrook Supply.
+    - brightfield-offer.docx: Brightfield Trading.
+    - No file is left without a supplier.
+
+    ## Price comparison
+    | Rank | Supplier | Total (EUR) |
+    |:--|:--|--:|
+    | 1 | Brightfield Trading | 11790.00 |
+    | 2 | Alderbrook Supply | 12 500,50 |
+
+    The spread between the highest and the lowest total is 710.50 EUR.
+
+    ## Differences and exclusions
+    - Alderbrook Supply: payment in 30 days, delivery in 14 days; "Transport is excluded".
+    - Brightfield Trading: payment in 45 days, delivery in 21 days; "Installation is excluded".
+
+    ## Checks that failed
+    - Brightfield Trading, stated_total: the lines add up to 11780.00 EUR, the offer writes 11790.00 EUR.
+
+    ## Questions for the suppliers
+    - Brightfield Trading: which of 11780.00 EUR and 11790.00 EUR is the total of the offer?
+    - Alderbrook Supply: what would transport cost?
+
+    ## What this memo does not cover
+    Quality, references and financial standing. The award is a person's decision.

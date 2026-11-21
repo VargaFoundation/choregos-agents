@@ -1,0 +1,5 @@
+# Findings gitleaks reports that are not secrets, one fingerprint per line (commit:file:rule:line).
+# Each carries why. Prefer an inline gitleaks:allow comment in new code; this file is for a line already in history.
+
+# An invented Odoo API key, the fake backend's test fixture (procurement PA-06): it opens nothing.
+32cce89b87060ce1470d2fe2fd71aa3c12508200:plugins/procurement/server/tests/odoo_script.py:generic-api-key:24

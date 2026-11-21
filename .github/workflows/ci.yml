@@ -10,9 +10,10 @@ permissions:
 
 env:
   # The core whose validator, packer, eval matrix and publication library every job runs: the commit of
-  # the graalsystems/tranibor v0.28.0 tag (the release that ships ADRs 0196-0199, which access-requests
-  # 0.2.0 and microsoft-365-desk 0.1.0 need). publish.yml pins the same commit.
-  CHOREGOS_REF: 88487e99096d79b80e9aad2d477207f064c460c5
+  # the graalsystems/tranibor v0.28.1 tag (the release that ships ADRs 0196-0202: what access-requests
+  # 0.2.0 and microsoft-365-desk 0.1.0 need, and procurement's attachments, output_sections and job
+  # commands). publish.yml pins the same commit.
+  CHOREGOS_REF: 3d0944a91200a908f2a9950300761181dbb1ebea
 
 jobs:
   servers:
@@ -136,8 +137,8 @@ jobs:
           [ "$found" = 1 ] || echo "no end-to-end tests yet"
 
   matrix:
-    # The ServiceNow plugin's matrix cases (`contents.matrix_cases`, the core's agent-case format), played
-    # as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
+    # The matrix cases of every plugin whose server ships `tests/test_matrix_cases.py` (`contents.matrix_cases`,
+    # the core's agent-case format; one pytest per plugin), played as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
     # each played in its cells through the core's real doors against the server in-process on its fake
     # (registered with the core's `use_fake_plugin_server`), and judged by the core's case judge. Needs
     # the core's whole workspace (the orchestrator's door player, the playbooks' judge, the runner's
@@ -158,9 +159,16 @@ jobs:
           set -euo pipefail
           cd core
           uv sync --frozen
-          PYTHONPATH="$GITHUB_WORKSPACE/agents/plugins/servicenow/server/src" \
-            uv run --frozen pytest -q -p no:cacheprovider \
-            "$GITHUB_WORKSPACE/agents/plugins/servicenow/server/tests/test_matrix_cases.py"
+          found=0
+          for file in "$GITHUB_WORKSPACE"/agents/plugins/*/server/tests/test_matrix_cases.py; do
+            [ -f "$file" ] || continue
+            found=1
+            server="${file%/tests/test_matrix_cases.py}"
+            echo "::group::$server"
+            PYTHONPATH="$server/src" uv run --frozen pytest -q -p no:cacheprovider "$file"
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || { echo "::error::no plugin ships matrix cases"; exit 1; }
 
   secrets:
     runs-on: ubuntu-latest

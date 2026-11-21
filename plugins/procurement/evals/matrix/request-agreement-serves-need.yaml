@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+# A case of the core's eval matrix, in the core's agent-case format, declared in plugin.yaml's
+# `contents.matrix_cases`: the matrix names it `plugin:procurement/request-agreement-serves-need` and plays it
+# against the purchasing server's fake (scene `default`); the installer never does. The companies and numbers
+# are invented (server/src/tranibor_purchasing/backends/fake.py). server/tests/test_matrix_cases.py plays it here
+# as the matrix does and judges it with the core's judge.
+agent: request-qualifier
+description: >
+  A purchase request an agreement in force serves. Toner and paper, 3200 EUR, needed by 2026-12-10: on that
+  date `list_framework_agreements` returns FA-0001 (office supplies, in force until 2027-12-31) and FA-0003
+  (facilities, open-ended), and not FA-0002, which ended on 2026-10-31. The qualifier must look at the
+  agreements (the tool is called), route the request to FA-0001 by its id as the tool wrote it, and write
+  nothing in the purchasing system.
+task: >
+  Qualify this purchase request. need: Printer toner and copier paper for the second floor, the usual
+  quarterly order. estimated_amount: 3200. currency: EUR. needed_by: 2026-12-10.
+tools_cells: [mcp, scripts]
+connectors:
+  purchasing: { kind: "plugin:procurement/purchasing", scene: default }
+#: The default: every write waits for a person. The qualifier is read only, so nothing is proposed either.
+policy: { writes: approval }
+evidence:
+  - tool: purchasing__list_framework_agreements
+    arguments: { valid_on: "2026-12-10" }
+instructions_must_contain:
+  - always call `list_framework_agreements`
+  - an agreement may serve any need
+  - never invent a threshold
+  - never write a number the fields do not hold
+answer_must_contain:
+  - { fact: "the route is the framework agreement", tokens: ["route", "framework_agreement"] }
+  - { fact: "the agreement FA-0001, as the tool wrote it", tokens: ["agreement_id", "FA-0001"] }
+  - office-supplies
+  - { fact: "the amount the requester typed", pattern: '3200 EUR' }
+#: What would be wrong: the agreement that ended, the one of another category, or a route that is not the agreement.
+answer_must_not_contain:
+  - { fact: "the ended agreement FA-0002", pattern: 'FA-0002' }
+  - { fact: "the facilities agreement FA-0003", pattern: 'FA-0003' }
+  - { fact: "another route than the agreement", pattern: '"route":\s*"(catalogue|three_quotes|tender)"' }
+min_score: 1.0
+assertions:
+  - { kind: no_tool_called, tools: ["purchasing__create_*", "purchasing__update_*", "purchasing__archive_*", "purchasing__cancel_*", "purchasing__add_*"] }
+  - { kind: executed_actions, count: 0 }
+  - { kind: proposed_actions, count: 0 }
+  - { kind: calls_by_origin, cell: mcp, origin: script, count: 0 }
+#: Illustrative numbers, billed on the fake gateway by the scripted matrix; the live matrix measures them. No
+#: script: both cells play the MCP door.
+scripted_usage:
+  mcp: { requests: 3, tokens_in: 21000, tokens_cached: 12000, tokens_out: 900, turns: 3 }
+  scripts: { requests: 3, tokens_in: 21000, tokens_cached: 12000, tokens_out: 900, turns: 3 }
+#: The answer the `mcp` cell gives, written from the evidence (the agent's own output).
+reference_answer: |
+  {"qualification": {"category": "office-supplies", "route": "framework_agreement", "agreement_id": "FA-0001", "rationale": "The agreements in force on 2026-12-10 were listed. The Office supplies framework covers toner and copier paper and is in force until 2027-12-31. The agreement of another category does not cover this need. The policy of the organisation is not on file here, so no threshold is applied."}, "route": "framework_agreement", "brief_markdown": "## Request\n\nPrinter toner and copier paper for the second floor, the usual quarterly order: 3200 EUR, needed by 2026-12-10.\n\n## Proposed route\n\nFramework agreement FA-0001 (Office supplies framework, category office-supplies).\n\n## To check before confirming\n\n- That the order is within the agreement's terms.\n- The policy of the organisation, which this proposal did not need.\n"}

@@ -1,0 +1,196 @@
+# SPDX-License-Identifier: Apache-2.0
+# A purchase request, qualified (core ADR 0202, plan PA-08). An employee states a need, an estimated amount, a
+# currency and the date it is needed by; an agent reads the request against the house policy and the framework
+# agreements in force and proposes ONE route; a buyer reviews, attested, and may change the route.
+#
+# - The workflow OPENS NOTHING: no `action`, no write to the purchasing system. Launching a consultation (or an
+#   order) is the buyer's next gesture. The only connector the agent reaches is read-only.
+# - The agent must ALWAYS call `list_framework_agreements` (`tool_called`, read from the ledger): a gate on a
+#   transition applies to every run of it, so it cannot wait for the route; and an agreement may serve any need.
+# - The amount the agent writes is the one the person typed: `numbers_measured` reads `fields`. A request that
+#   states no amount makes the agent ask (`ask_human`; `on_question: needs_human`), not guess.
+# - `route` is written twice, in `qualification` and as an output of its own, because `outputs_in` reads
+#   top-level outputs only; the buyer's choice, not either copy, names the terminal state.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: purchase-request
+  version: 1
+  description: A purchase request qualified against the house purchasing policy and the framework agreements in force, routed to a catalogue, an agreement, three quotes or a tender, and confirmed by a buyer who attests the route. Nothing is opened in the purchasing system.
+  catalogue:
+    title: Qualify a purchase request
+    summary: State what you need, the estimated amount, the currency and the date. An agent checks the house rules and the framework agreements in force and proposes a route; a buyer confirms or changes it, attested. Nothing is ordered.
+    tags: [procurement, requests]
+  inputs:
+    type: object
+    required: [need]
+    properties:
+      need: { type: string, minLength: 1, title: What is needed }
+      # Not required: a request that states no amount is the agent's question, never a guess.
+      estimated_amount: { type: number, minimum: 0, title: Estimated amount (digits and a decimal point) }
+      currency: { type: string, pattern: "^[A-Z]{3}$", title: Currency (three upper-case letters) }
+      needed_by: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$", title: Needed by (YYYY-MM-DD) }
+      # Written by the forms of the buyers. A value typed when the work item is opened is a draft: the form
+      # replaces it, under the buyer's attestation.
+      review_note: { type: string, title: What the buyer checked }
+      decline_reason: { type: string, title: Why the request is not pursued }
+initial: received
+actors:
+  qualifier: { type: agent, role: qualify, agent: request-qualifier, max_turns: 25, max_minutes: 15 }
+  buyer: { type: human, group: buyers, sla_hours: 48 }
+  platform: { type: system }
+states:
+  received: { display: Request received }
+  qualified: { display: Request qualified }
+  awaiting_review: { display: The buyer decides the route, kind: wait }
+  routed_catalogue: { display: "Route: catalogue", terminal: true }
+  routed_framework_agreement: { display: "Route: framework agreement", terminal: true }
+  routed_three_quotes: { display: "Route: three quotes", terminal: true }
+  routed_tender: { display: "Route: tender", terminal: true }
+  declined: { display: Not pursued, terminal: true }
+  needs_human: { display: Needs a human, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  # The first transition: it reads the request, so it asks when the amount is missing. The schema below is
+  # the contract of the `qualification` document; a framework agreement carries its id, any other route none.
+  - id: t-qualify
+    from: received
+    to: qualified
+    by: qualifier
+    inputs: [human_feedback]
+    outputs: [qualification, route, brief_markdown]
+    output_types: { qualification: json, route: text, brief_markdown: markdown }
+    gates:
+      - name: output_schema
+        params:
+          schemas:
+            qualification:
+              {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://tranibor.dev/schemas/procurement/qualification.schema.json",
+                "title": "qualification",
+                "description": "A purchase request qualified by an agent: its category, the one route proposed, the framework agreement that serves it (route framework_agreement only) and why.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["category", "route", "agreement_id", "rationale"],
+                "properties": {
+                  "category": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+                  "route": { "enum": ["catalogue", "framework_agreement", "three_quotes", "tender"] },
+                  "agreement_id": { "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                  "rationale": { "type": "string", "minLength": 1 }
+                },
+                "if": { "properties": { "route": { "const": "framework_agreement" } } },
+                "then": { "properties": { "agreement_id": { "type": "string", "minLength": 1 } } },
+                "else": { "properties": { "agreement_id": { "type": "null" } } },
+                "examples": [
+                  {
+                    "category": "office-supplies",
+                    "route": "framework_agreement",
+                    "agreement_id": "FA-0001",
+                    "rationale": "The office supplies framework is in force on the date needed and covers toner and paper."
+                  }
+                ]
+              }
+      - name: outputs_in
+        params: { values: { route: [catalogue, framework_agreement, three_quotes, tender] } }
+      # Every number of the proposal is one the requester typed.
+      # An agreement's id (`FA-0012`) is a reference, not an amount (core S85-16). The hole it opens stays open
+      # in the free text (`rationale`, the brief): an amount glued to letters (`EUR-99999`) is not checked there,
+      # and the buyer who reviews reads it.
+      - name: numbers_measured
+        params:
+          sources: [fields]
+          outputs: [brief_markdown, qualification]
+          identifiers: skip
+      # The run must have looked at the agreements, whatever the route: counted in the ledger, not believed.
+      - name: tool_called
+        params: { tools: [purchasing__list_framework_agreements] }
+    on_fail: { to: received, max_attempts: 2, escalate_to: needs_human }
+
+  - id: t-route
+    from: qualified
+    to: awaiting_review
+    by: platform
+
+  # The buyer's choice IS the route: confirming the agent's proposal or taking another route is the same
+  # gesture, one task per route, each attested. A buyer who wants a better proposal sends it back.
+  - id: t-route-catalogue
+    from: awaiting_review
+    to: routed_catalogue
+    by: buyer
+    task:
+      title: "Route: buy from the catalogue"
+      instructions: &route_instructions >-
+        Read the brief and the qualification: the agent proposed one route and looked at the framework
+        agreements, but it applied the house policy as written and decided nothing. Choose the route this
+        request takes; it may differ from the proposal. Say what you checked. Launching the consultation or
+        the order is your next step: this workflow opens nothing in the purchasing system. Send it back
+        with your remarks to have the request qualified again.
+      form: &route_form
+        type: object
+        required: [review_note]
+        properties:
+          review_note: { type: string, minLength: 1, title: What the buyer checked }
+      attest: &route_attest I read the request, the qualification and the policy, and this is the route the request takes.
+    on_reject: received
+  - id: t-route-framework-agreement
+    from: awaiting_review
+    to: routed_framework_agreement
+    by: buyer
+    task:
+      title: "Route: call off a framework agreement"
+      instructions: *route_instructions
+      form: *route_form
+      attest: *route_attest
+    on_reject: received
+  - id: t-route-three-quotes
+    from: awaiting_review
+    to: routed_three_quotes
+    by: buyer
+    task:
+      title: "Route: ask for three quotes"
+      instructions: *route_instructions
+      form: *route_form
+      attest: *route_attest
+    on_reject: received
+  - id: t-route-tender
+    from: awaiting_review
+    to: routed_tender
+    by: buyer
+    task:
+      title: "Route: run a tender"
+      instructions: *route_instructions
+      form: *route_form
+      attest: *route_attest
+    on_reject: received
+  - id: t-decline
+    from: awaiting_review
+    to: declined
+    by: buyer
+    task:
+      title: Do not pursue this request
+      instructions: Say why the request is not pursued.
+      form:
+        type: object
+        required: [decline_reason]
+        properties:
+          decline_reason: { type: string, minLength: 1, title: Why the request is not pursued }
+
+  - id: t-abandon
+    from: needs_human
+    to: abandoned
+    by: buyer
+    timeout_hours: 168
+
+artifacts:
+  brief_markdown: { show: tab, title: Brief for the buyer }
+  qualification: { show: tab, title: Qualification }
+defaults:
+  from_any_agent_state:
+    # The agent asks (`ask_human`) when the request states no amount; the answer resumes the stage.
+    on_question: needs_human
+    on_budget_exceeded: needs_human
+    on_timeout: needs_human
+  needs_human:
+    on_answer: resume
+    on_abandon: abandoned

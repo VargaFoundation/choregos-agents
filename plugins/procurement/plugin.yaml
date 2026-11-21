@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# The procurement plugin (core ADR 0202): the two agents of the comparison of supplier offers. One copies
+# what the offers say into a structure, the other writes the memo from numbers a deterministic step measured.
+# The template `procurement-sourcing` runs them; the job image that extracts and computes comes in a later change.
+# 0.2.0 adds the MCP server `purchasing` (a fixed profile of eleven operations, served by Odoo 19 and 20 and by a
+# seeded fake) and the procedure that connects it. It also adds the agents `supplier-file-checker`,
+# `request-qualifier` and `renewal-analyst` and the template `procurement-operations`, whose workflows onboard a
+# supplier, qualify a purchase request and run a renewal campaign (the plugin's first governed writes).
+apiVersion: choregos/v1
+kind: Plugin
+metadata:
+  name: procurement
+  version: 0.2.0
+  publisher: GRAAL.SYSTEMS SAS
+  license: Apache-2.0
+  description: >-
+    Compare supplier offers without trusting a model with arithmetic: an agent copies what each offer says
+    into a structure, a deterministic step computes, and a second agent writes a memo that ranks by the
+    measured total, lists what differs and recommends nobody.
+  homepage: https://github.com/graalsystems/tranibor-agents
+  # PROVISIONAL floor: 0.28.0 is the first core release expected to carry the reserved input `attachments`
+  # (core ADR 0201). Correct it to that release's actual version when this plugin is published.
+  core: ">=0.28.1,<1.0.0"
+requires:
+  plugins: []
+  connectors: {}
+contents:
+  agents: [agents/offer-reader.yaml, agents/sourcing-analyst.yaml, agents/supplier-file-checker.yaml, agents/request-qualifier.yaml, agents/renewal-analyst.yaml, agents/purchasing-desk.yaml]
+  skills: [skills/reading-supplier-offers, skills/writing-comparison-memos]
+  templates: [templates/procurement-sourcing, templates/procurement-operations]
+  evals: [evals/offer-reader.yaml, evals/sourcing-analyst.yaml, evals/supplier-file-checker.yaml, evals/request-qualifier.yaml, evals/renewal-analyst.yaml, evals/purchasing-desk.yaml]
+  assistants: [assistants/purchasing-desk.yaml]
+  procedures: ["procedures/*.md"]
+  servers: [servers/purchasing.yaml]
+  # Cases of the core's eval matrix (its agent-case format), named `plugin:procurement/<file stem>`: the matrix
+  # plays them against the server's fake; the installer keeps them and never plays them.
+  matrix_cases:
+    - evals/matrix/request-agreement-serves-need.yaml
+    - evals/matrix/request-no-agreement-serves-need.yaml
+    - evals/matrix/renewal-memo-reads-the-contract.yaml

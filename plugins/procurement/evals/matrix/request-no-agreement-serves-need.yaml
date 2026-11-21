@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# A case of the core's eval matrix, in the core's agent-case format, declared in plugin.yaml's
+# `contents.matrix_cases`: the matrix names it `plugin:procurement/request-no-agreement-serves-need` and plays it
+# against the purchasing server's fake (scene `default`); the installer never does. The companies and numbers
+# are invented (server/src/tranibor_purchasing/backends/fake.py). server/tests/test_matrix_cases.py plays it here
+# as the matrix does and judges it with the core's judge.
+agent: request-qualifier
+description: >
+  A purchase request no agreement serves. A translation, 18000 EUR, needed by 2027-02-15: on that date
+  `list_framework_agreements` returns FA-0001 (office supplies) and FA-0003 (facilities), and neither covers a
+  translation. The qualifier must look at the agreements (the tool is called) and name none: no
+  `agreement_id`, a route that is not the framework agreement, and no agreement of its own invention.
+task: >
+  Qualify this purchase request. need: Translation of the product manual into four languages, with a review
+  by a native speaker. estimated_amount: 18000. currency: EUR. needed_by: 2027-02-15.
+tools_cells: [mcp, scripts]
+connectors:
+  purchasing: { kind: "plugin:procurement/purchasing", scene: default }
+policy: { writes: approval }
+evidence:
+  - tool: purchasing__list_framework_agreements
+    arguments: { valid_on: "2027-02-15" }
+instructions_must_contain:
+  - always call `list_framework_agreements`
+  - an agreement may serve any need
+  - never invent a threshold
+  - "`tender`"
+answer_must_contain:
+  - { fact: "the route is a tender, the policy holding no rule", tokens: ["route", "tender"] }
+  - { fact: "no agreement named", tokens: ["agreement_id", "null"] }
+  - { fact: "the amount the requester typed", pattern: '18000 EUR' }
+#: No agreement is invented: no agreement id at all (the ones the tool returned serve other needs, so even
+#: those are not cited), and no route that is the agreement.
+answer_must_not_contain:
+  - { fact: "an agreement id", pattern: 'FA-\d+' }
+  - { fact: "the route is a framework agreement", pattern: '"route":\s*"framework_agreement"' }
+min_score: 1.0
+assertions:
+  - { kind: no_tool_called, tools: ["purchasing__create_*", "purchasing__update_*", "purchasing__archive_*", "purchasing__cancel_*", "purchasing__add_*"] }
+  - { kind: executed_actions, count: 0 }
+  - { kind: proposed_actions, count: 0 }
+  - { kind: calls_by_origin, cell: mcp, origin: script, count: 0 }
+scripted_usage:
+  mcp: { requests: 3, tokens_in: 21000, tokens_cached: 12000, tokens_out: 900, turns: 3 }
+  scripts: { requests: 3, tokens_in: 21000, tokens_cached: 12000, tokens_out: 900, turns: 3 }
+reference_answer: |
+  {"qualification": {"category": "translation", "route": "tender", "agreement_id": null, "rationale": "The agreements in force on 2027-02-15 were listed and none covers a translation: they are for office supplies and for facilities. The policy of the organisation holds no rule that covers this request, so the most demanding route is proposed and the buyer may lower it."}, "route": "tender", "brief_markdown": "## Request\n\nTranslation of the product manual into four languages, with a review by a native speaker: 18000 EUR, needed by 2027-02-15.\n\n## Proposed route\n\nTender. No framework agreement in force serves this need.\n\n## To check before confirming\n\n- Whether the policy asks for quotes at this amount, in which case the buyer may lower the route.\n"}

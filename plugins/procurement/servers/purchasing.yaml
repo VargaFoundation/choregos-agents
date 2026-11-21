@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: Apache-2.0
+# The purchasing MCP server, as the platform runs and governs it (ADR 0096, ADR 0202, plan S85 Decision 5).
+# One server named after what it does, a fixed profile of eleven operations (server/PROFILE.md), and
+# replaceable backends. Source: ../server. A tool not listed in `operations` is refused by the platform.
+#
+# One real backend ships: `odoo` (Odoo 19 and 20, through the vendor's JSON-2 API with an API key; PA-06). Which
+# operations it maps and which it does not support is written in server/PROFILE.md. The fake below serves the
+# platform's own evaluations.
+name: purchasing
+# CI fills the digest when it builds, signs and publishes the image; the zeros are never pullable.
+image: ghcr.io/graalsystems/tranibor-agents/purchasing-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
+port: 8080
+protocol: mcp-http
+# MCP at /mcp, behind the platform's bearer token (CHOREGOS_SERVER_TOKEN); the health probe stays open.
+paths: {mcp: /mcp, health: /healthz}
+
+# What an administrator types when installing the plugin. Each property reaches the server as the
+# environment variable named in `x-env`; `secret_fields` are sealed and never shown again. The fake is not
+# a value of `backend`: only `fake.env` switches the server to it.
+config_schema:
+  type: object
+  additionalProperties: false
+  required: [backend, base_url, username, api_key]
+  properties:
+    backend:
+      type: string
+      enum: [odoo]
+      description: The purchasing system behind the profile. Odoo 19 or 20 (Purchase, Purchase Agreements and Contacts installed) is the one backend this version serves.
+      x-env: PURCHASING_BACKEND
+    base_url:
+      type: string
+      format: uri
+      pattern: "^https://"
+      description: The purchasing system's URL, e.g. https://purchasing.example.com
+      x-env: PURCHASING_BASE_URL
+    database:
+      type: string
+      description: The Odoo database, sent as the X-Odoo-Database header; leave it empty where the host name alone selects the database.
+      x-env: PURCHASING_DATABASE
+    username:
+      type: string
+      description: The dedicated integration user, holding the least rights that serve the profile and never an administrator. Odoo authenticates by the API key; the name is kept for the audit trail and for the integration's own log.
+      x-env: PURCHASING_USERNAME
+    api_key:
+      type: string
+      description: The integration user's API key.
+      x-env: PURCHASING_API_KEY
+secret_fields: [api_key]
+
+# The only host the server may reach: the purchasing system.
+egress:
+  from_fields: [base_url]
+
+# The governance floor. `access: read` is allowed by default; every write is held for a person
+# (`human_approval: true`, never lowered). `compensation` is the operation that undoes the write, its
+# arguments rendered from the write's own result; the platform renders every argument to a string, so
+# `fields` travels as JSON (`tojson`) and the server accepts it. `platform_arguments: [action_key]` is the
+# idempotency key the platform fills, never the agent: the same key twice writes once. No operation takes or
+# returns a bank detail.
+operations:
+  - {name: search_suppliers, access: read}
+  - {name: get_supplier, access: read}
+  - {name: list_framework_agreements, access: read}
+  - {name: list_contracts, access: read}
+  - {name: get_contract, access: read}
+
+  - name: create_supplier
+    access: write
+    human_approval: true
+    description: A supplier record without payment data; refused as a duplicate. Undone by archiving it.
+    platform_arguments: [action_key]
+    compensation:
+      operation: archive_supplier
+      arguments:
+        supplier_id: "{{ result.supplier_id }}"
+        reason: "Creation undone."
+  - name: update_supplier
+    access: write
+    human_approval: true
+    description: Identity, contact, address and categories, never payment data. Undone by writing the previous values back.
+    platform_arguments: [action_key]
+    compensation:
+      operation: update_supplier
+      arguments:
+        supplier_id: "{{ result.supplier_id }}"
+        fields: "{{ result.previous | tojson }}"
+  - name: archive_supplier
+    access: write
+    human_approval: true
+    description: Takes a supplier out of searches and of new purchase requests. Nothing in the profile restores it.
+    platform_arguments: [action_key]
+  - name: add_contract_note
+    access: write
+    human_approval: true
+    description: A text note on a contract; the profile has no way to remove one.
+    platform_arguments: [action_key]
+  - name: create_purchase_request
+    access: write
+    human_approval: true
+    description: A draft purchase request to an active supplier, totals computed by the server; nothing is ordered. Undone by cancelling it.
+    platform_arguments: [action_key]
+    compensation:
+      operation: cancel_purchase_request
+      arguments:
+        request_id: "{{ result.request_id }}"
+        reason: "Creation undone."
+  - name: cancel_purchase_request
+    access: write
+    human_approval: true
+    description: Cancels a purchase request; cancelling a cancelled one changes nothing.
+    platform_arguments: [action_key]
+
+# How the platform runs this server on its fake: what switches it to the seeded instance, and the scenes that
+# instance serves (`PURCHASING_FAKE_SCENE`, set by the platform's eval instance). An administrator cannot reach
+# it: no configuration field is one of these variables. Scene names carry no underscore (the descriptor's schema).
+fake:
+  env: {PURCHASING_FAKE: "1"}
+  scenes: [default, duplicate-supplier, expiring-contracts]

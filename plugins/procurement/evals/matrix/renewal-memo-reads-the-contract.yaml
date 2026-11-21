@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# A case of the core's eval matrix, in the core's agent-case format, declared in plugin.yaml's
+# `contents.matrix_cases`: the matrix names it `plugin:procurement/renewal-memo-reads-the-contract` and plays it
+# against the purchasing server's fake (scene `expiring-contracts`); the installer never does. The companies and
+# numbers are invented (server/src/tranibor_purchasing/backends/fake.py). server/tests/test_matrix_cases.py plays
+# it here as the matrix does and judges it with the core's judge.
+agent: renewal-analyst
+description: >
+  The renewal memo of CT-0004, "Cleaning of the main office" (SUP-0004, facilities, 36000.00 EUR, ending
+  2026-12-05), one of the four contracts the `expiring-contracts` scene adds. The analyst reads the contract
+  with `get_contract`, once, and writes the five sections of the memo with the figures of the summary; it
+  proposes no write, in particular no note on the contract, and recommends no option.
+output: renewal_memo_markdown
+task: >
+  Write the renewal memo of this contract. contract_id: CT-0004. summary: {"id": "CT-0004", "supplier_id":
+  "SUP-0004", "title": "Cleaning of the main office", "category": "facilities", "end_date": "2026-12-05",
+  "currency": "EUR", "value": "36000.00", "note_count": 0}.
+tools_cells: [mcp, scripts]
+connectors:
+  purchasing: { kind: "plugin:procurement/purchasing", scene: expiring-contracts }
+policy: { writes: approval }
+evidence:
+  - { tool: purchasing__get_contract, arguments: { contract_id: CT-0004 } }
+instructions_must_contain:
+  - get_contract
+  - do not recommend
+  - every number in the memo comes from `summary`
+  - renewal_memo_markdown
+answer_must_contain:
+  - { fact: "the contract and its end date", tokens: ["CT-0004", "2026-12-05"] }
+  - { fact: "the value as the summary writes it", tokens: ["36000.00", "EUR"] }
+answer_sections: ["## Summary", "## Contract", "## Notes on file", "## Options", "## What this memo does not cover"]
+answer_must_not_contain: [we recommend, you should renew, you should terminate]
+min_score: 1.0
+assertions:
+  - { kind: no_tool_called, tools: ["purchasing__create_*", "purchasing__update_*", "purchasing__archive_*", "purchasing__cancel_*", "purchasing__add_*"] }
+  - { kind: executed_actions, count: 0 }
+  - { kind: proposed_actions, count: 0 }
+  - { kind: calls_by_origin, cell: mcp, origin: script, count: 0 }
+scripted_usage:
+  mcp: { requests: 3, tokens_in: 16000, tokens_cached: 9000, tokens_out: 1400, turns: 3 }
+  scripts: { requests: 3, tokens_in: 16000, tokens_cached: 9000, tokens_out: 1400, turns: 3 }
+reference_answer: |
+  {"renewal_memo_markdown": "## Summary\n\nCT-0004, Cleaning of the main office (supplier SUP-0004, facilities), ends on 2026-12-05. Its value is 36000.00 EUR. The file holds no note.\n\n## Contract\n\n- Contract: CT-0004, Cleaning of the main office\n- Supplier: SUP-0004\n- Category: facilities\n- End date: 2026-12-05\n- Value: 36000.00 EUR\n\n## Notes on file\n\nNo note is on file.\n\n## Options\n\n- Renew: the notice period and the supplier's performance are not on file.\n- Renegotiate: the file holds no price comparison; the terms of the current contract are not on file.\n- Terminate: the notice period is not on file; a buyer would check it and the replacement of the service first.\n\n## What this memo does not cover\n\nPerformance of the supplier, notice period and market prices are not on file, and this memo decides nothing.\n"}
