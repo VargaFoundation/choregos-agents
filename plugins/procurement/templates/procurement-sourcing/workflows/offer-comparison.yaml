@@ -301,7 +301,7 @@ transitions:
     from: structured
     to: computed
     by: calculator
-    inputs: [offers_structured]
+    inputs: [offers_structured, offers_text]
     outputs: [comparison, award_basis]
     output_types: { comparison: json, award_basis: json }
     gates:

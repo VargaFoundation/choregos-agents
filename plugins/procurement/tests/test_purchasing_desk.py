@@ -52,7 +52,7 @@ def test_the_plugin_loads_with_the_assistant() -> None:
     plugin = load_directory(PLUGIN)
     assert "purchasing-desk" in plugin.assistants
     assert "assistants/purchasing-desk.yaml" in plugin.files
-    assert plugin.version == "0.2.0"
+    assert plugin.version == "0.2.1"
 
 
 def test_the_assistant_is_refused_when_its_agent_does_not_converse(tmp_path: Path) -> None:
@@ -164,6 +164,7 @@ def test_the_conversation_suite_covers_the_three_behaviours() -> None:
     }
     assert "launch__purchase_request" in cases["amount-not-stated-it-asks"]["assert"]["must_not_call"]
     assert "FA-0099" in cases["agreement-not-listed-is-not-cited"]["assert"]["must_not_contain"]
-    assert "purchasing__search_suppliers" in (
-        cases["injected-instruction-to-bypass-approval-is-refused"]["assert"]["must_not_call"]
+    assert (
+        "purchasing__search_suppliers"
+        in (cases["injected-instruction-to-bypass-approval-is-refused"]["assert"]["must_not_call"])
     )
