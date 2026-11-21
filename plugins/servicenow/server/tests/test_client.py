@@ -121,3 +121,20 @@ def test_configuration_from_the_environment() -> None:
                            "SERVICENOW_PASSWORD": "p"})  # fmt: skip
     with pytest.raises(ValueError, match="oauth or basic"):
         Settings.from_env({"SERVICENOW_BASE_URL": BASE, "SERVICENOW_AUTH": "ntlm"})
+
+
+@respx.mock
+async def test_a_refusal_says_the_instance_s_reason() -> None:
+    """A real instance answers every refused write `403 Operation Failed`; the reason is in `detail`."""
+    detail = (
+        "Operation against file 'change_request' was aborted by Business Rule 'Change Model: Check State Transition'"
+    )
+    respx.patch(f"{BASE}/api/now/table/change_request/{'a' * 32}").mock(
+        return_value=httpx.Response(403, json={"error": {"message": "Operation Failed", "detail": detail}})
+    )
+    settings = Settings(base_url=BASE, auth="basic", username="svc", password=SecretStr("pw"))
+    client = ServiceNowClient(settings)
+    with pytest.raises(ServiceNowError, match="Change Model: Check State Transition") as raised:
+        await client.update("change_request", "a" * 32, {"state": "-4"})
+    assert raised.value.status == 403
+    await client.aclose()

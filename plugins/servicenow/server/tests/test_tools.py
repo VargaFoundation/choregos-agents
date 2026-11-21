@@ -276,3 +276,29 @@ async def test_update_record_takes_its_fields_as_json_text(mcp: Mcp) -> None:
     assert changed["current"] == {"urgency": "1"}
     assert "JSON text" in await mcp.error("update_record", table="incident", sys_id=sys_id, fields="not json")
     assert await mcp.error("update_record", table="incident", sys_id=sys_id, fields='["urgency"]')
+
+
+# ───── a write a real instance keeps silently (an Australia PDI, 2026-11-21) ─────
+
+
+async def test_a_field_the_instance_keeps_fails_the_whole_update(mcp: Mcp, fake: FakeServiceNow) -> None:
+    """ServiceNow answers 200 to a write it does not apply (a field ACL, a choice it refuses) and keeps the
+    old value: `update_record` reported the change as made. Now it fails, naming the field, and the fields
+    the instance did write go back, so a refused call leaves the record as it was."""
+    sys_id = sys_id_of("INC0010003")
+    fake.unwritable = {("incident", "category")}
+    message = await mcp.error(
+        "update_record", table="incident", sys_id=sys_id, fields={"impact": "1", "category": "network"}
+    )
+    assert "did not apply category" in message
+    row = fake.tables["incident"][sys_id]
+    assert (row["impact"], row["category"]) == ("3", "inquiry")
+
+
+async def test_a_resolution_the_instance_keeps_is_an_error(mcp: Mcp, fake: FakeServiceNow) -> None:
+    fake.unwritable = {("incident", "state")}
+    message = await mcp.error(
+        "resolve_incident", sys_id=sys_id_of("INC0010006"), close_code="Solution provided", close_notes="Done."
+    )
+    assert "did not apply state" in message
+    assert "did not apply" in await mcp.error("tracker_set_state", key="INC0010006", status="On Hold")
