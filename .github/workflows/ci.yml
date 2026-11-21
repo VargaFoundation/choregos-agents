@@ -9,12 +9,10 @@ permissions:
   contents: read
 
 env:
-  # The core whose validator, packer, eval matrix and publication library every job runs: a main commit of
-  # graalsystems/tranibor, after the rename to Tranibor (ADR 0176). publish.yml pins the same commit.
-  # TEMPORARY, not to be merged: the merge of graalsystems/tranibor#2030 on main (S84-01..04, the seams
-  # that access-requests 0.2.0 and microsoft-365-desk 0.1.0 need). Before merge, both pins move together
-  # to the commit of the v0.28.0 tag (graalsystems/tranibor#2042).
-  CHOREGOS_REF: a9fdea4cd0319fdb7f3d691d7e65038c8fb907ba
+  # The core whose validator, packer, eval matrix and publication library every job runs: the commit of
+  # the graalsystems/tranibor v0.28.0 tag (the release that ships ADRs 0196-0199, which access-requests
+  # 0.2.0 and microsoft-365-desk 0.1.0 need). publish.yml pins the same commit.
+  CHOREGOS_REF: 88487e99096d79b80e9aad2d477207f064c460c5
 
 jobs:
   servers:
