@@ -48,6 +48,9 @@ REFERENCES: dict[str, str] = {
 _REL_REFERENCES = {"parent": "cmdb_ci", "child": "cmdb_ci", "type": "cmdb_rel_type"}
 _CHOICE_FIELDS = frozenset({"state", "impact", "urgency", "priority"})
 _JOURNAL_FIELDS = ("work_notes", "comments")
+_DATE_FIELDS = frozenset({"sys_created_on", "sys_updated_on", "opened_at", "resolved_at", "closed_at"})
+#: How a journal header names the integration user (its display name, not its user ID).
+FAKE_USER_DISPLAY = "Tranibor integration"
 _NUMBER_PREFIX = {"incident": "INC", "change_request": "CHG", "sc_req_item": "RITM", "problem": "PRB"}
 _PRIORITY = {
     ("1", "1"): "1", ("1", "2"): "2", ("2", "1"): "2", ("1", "3"): "3", ("2", "2"): "3",
@@ -174,10 +177,20 @@ def _matches(actual: Any, op: str, expected: str) -> bool:
 
 
 class FakeServiceNow:
-    """Callable as an `httpx.MockTransport` handler. Every request is kept in `requests`."""
+    """Callable as an `httpx.MockTransport` handler. Every request is kept in `requests`.
+
+    Four switches play what a real instance does to a user without the plugin's role (each seen on an
+    Australia instance): `journal_readable = False` filters every `sys_journal_field` row out (an answer of
+    200 and no row), `choices_readable = False` refuses `sys_choice` (403), `unwritable` holds the
+    `(table, field)` a write keeps silently (an answer of 200 and the old value), and `tz_offset_hours` is
+    the reading user's time zone, in which every date label and journal header is rendered."""
 
     def __init__(self, *, token_ttl_s: int = 1800) -> None:
         self.tables: dict[str, dict[str, dict[str, Any]]] = {}
+        self.journal_readable = True
+        self.choices_readable = True
+        self.unwritable: set[tuple[str, str]] = set()
+        self.tz_offset_hours = 0.0
         self.requests: list[httpx.Request] = []
         self.tokens: dict[str, datetime] = {}
         self.token_ttl_s = token_ttl_s
@@ -225,6 +238,9 @@ class FakeServiceNow:
         params = {k: v for k, v in request.url.params.items()}
         if table not in self.tables and table != "sys_journal_field":
             return httpx.Response(400, json={"error": {"message": f"Invalid table {table}"}})
+        if table == "sys_choice" and not self.choices_readable:
+            return httpx.Response(403, json={"error": {"message": "Insufficient rights to query records",
+                                                        "detail": "Field(s) present in the query do not have permission to be read"}})  # fmt: skip
         handlers: dict[tuple[str, bool], Callable[[], httpx.Response]] = {
             ("GET", False): lambda: self._list(table, params),
             ("GET", True): lambda: self._get(table, sys_id or "", params),
@@ -262,6 +278,8 @@ class FakeServiceNow:
             groups, order = parse_encoded(params.get("sysparm_query", ""))
         except ValueError as error:
             return httpx.Response(400, json={"error": {"message": str(error)}})
+        if table == "sys_journal_field" and not self.journal_readable:
+            return httpx.Response(200, json={"result": []})
         rows = [
             r
             for r in self.rows(table)
@@ -285,7 +303,7 @@ class FakeServiceNow:
 
     def _create(self, table: str, body: dict[str, Any], params: dict[str, str]) -> httpx.Response:
         journal = {k: body.pop(k) for k in _JOURNAL_FIELDS if k in body}
-        record = {k: str(v) for k, v in body.items()}
+        record = {k: str(v) for k, v in body.items() if (table, k) not in self.unwritable}
         if table in _NUMBER_PREFIX:
             record.setdefault("number", f"{_NUMBER_PREFIX[table]}{next(self._numbers):07d}")
             record.setdefault("active", "true")
@@ -301,7 +319,7 @@ class FakeServiceNow:
         if row is None:
             return httpx.Response(404, json={"error": {"message": "No Record found"}})
         journal = {k: body.pop(k) for k in _JOURNAL_FIELDS if k in body}
-        row.update({k: str(v) for k, v in body.items()})
+        row.update({k: str(v) for k, v in body.items() if (table, k) not in self.unwritable})
         if table in _NUMBER_PREFIX:
             self._derive(table, row)
         row["sys_mod_count"] = str(int(row.get("sys_mod_count", "0")) + 1)
@@ -361,16 +379,44 @@ class FakeServiceNow:
             ref = self.tables.get(target, {}).get(str(value))
             return "" if ref is None else ref.get("name", "")
         if name in _CHOICE_FIELDS:
-            for choice in self.rows("sys_choice"):
-                if choice["name"] == table and choice["element"] == name and choice["value"] == str(value):
-                    return choice["label"]
+            # A task table without a list of its own renders `task`'s (the request item's states).
+            for owner in (table, "task"):
+                for choice in self.rows("sys_choice"):
+                    if choice["name"] == owner and choice["element"] == name and choice["value"] == str(value):
+                        return choice["label"]
+        if name in _DATE_FIELDS:
+            return self._local(str(value))
         return value
+
+    def _local(self, utc: str) -> str:
+        """A stored (UTC) date as the reading user sees it."""
+        try:
+            moment = datetime.strptime(utc, DATE_FORMAT)
+        except ValueError:
+            return utc
+        return (moment + timedelta(hours=self.tz_offset_hours)).strftime(DATE_FORMAT)
+
+    def _rendered_journal(self, table: str, row: dict[str, Any], element: str) -> str:
+        """A journal field as ServiceNow renders it: newest first, `<local date> - <name> (Work notes)`."""
+        label = {"work_notes": "Work notes", "comments": "Comments"}[element]
+        entries = [e for e in self.journal(row["sys_id"]) if e["name"] == table and e["element"] == element]
+        entries.sort(key=lambda e: str(e["sys_created_on"]))
+        entries.reverse()  # newest first; of two in the same second, the later written first
+        return "".join(
+            f"{self._local(e['sys_created_on'])} - {FAKE_USER_DISPLAY} ({label})\n{e['value']}\n\n" for e in entries
+        )
 
     def _render(self, table: str, row: dict[str, Any], params: dict[str, str]) -> dict[str, Any]:
         fields = [f for f in params.get("sysparm_fields", "").split(",") if f] or list(row)
         mode = params.get("sysparm_display_value", "false")
         out: dict[str, Any] = {}
         for name in fields:
+            if name in _JOURNAL_FIELDS:
+                rendered = self._rendered_journal(table, row, name)
+                out[name] = (
+                    {"value": "", "display_value": rendered} if mode == "all" else rendered if mode == "true" else ""
+                )
+                continue
             value = self._value(table, row, name)
             value = "" if value is None else value
             if mode == "all":
@@ -397,8 +443,9 @@ def seed(fake: FakeServiceNow) -> None:
     for name, element, choices in (
         ("incident", "state", [("1", "New"), ("2", "In Progress"), ("3", "On Hold"), ("6", "Resolved"),
                                ("7", "Closed"), ("8", "Canceled")]),
-        ("sc_req_item", "state", [("1", "Open"), ("2", "Work in Progress"), ("3", "Closed Complete"),
-                                  ("4", "Closed Incomplete"), ("7", "Closed Skipped")]),
+        # A real instance holds the request item's states on `task`, none on `sc_req_item` (Australia).
+        ("task", "state", [("-5", "Pending"), ("1", "Open"), ("2", "Work in Progress"), ("3", "Closed Complete"),
+                           ("4", "Closed Incomplete"), ("7", "Closed Skipped")]),
         ("change_request", "state", [("-5", "New"), ("-4", "Assess"), ("-3", "Authorize"), ("-2", "Scheduled"),
                                      ("-1", "Implement"), ("0", "Review"), ("3", "Closed"), ("4", "Canceled")]),
         ("problem", "state", [("101", "New"), ("102", "Assess"), ("103", "Root Cause Analysis"),

@@ -18,7 +18,7 @@ from .client import MAX_ROWS, ServiceNowClient
 from .errors import Refused
 from .query import Filter, Op, Query, eq
 from .tables import TRACKER_TABLES, UPDATABLE_FIELDS, is_sys_id, table_of_number
-from .tools import ServiceNowTools, marker_of, text_key
+from .tools import ServiceNowTools, marker_of, text_key, unkeyed
 from .webhook import CLOSED_STATES, parse, verify
 
 _STATUS = re.compile(r"\[choregos-status:([A-Za-z0-9._:-]{1,80})\]")
@@ -132,7 +132,7 @@ class Tracker:
             "incident",
             {"short_description": title, "description": body, "correlation_id": correlation, **extra},
         )
-        return {"key": record["fields"]["number"], "sys_id": record["sys_id"], "created": True}
+        return {"key": record["fields"]["number"], "sys_id": record["sys_id"], "created": True, **unkeyed(record)}
 
     async def set_state(
         self,

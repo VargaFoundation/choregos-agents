@@ -3,8 +3,8 @@ id: connector.mcp.servicenow
 title: Connect a ServiceNow instance
 applies_to: {connector: mcp/servicenow}
 audience: org_admin
-version: 1
-reviewed: 2026-10-27
+version: 2
+reviewed: 2026-11-21
 vendor_docs:
   - {title: "Configure OAuth client credentials grant (inbound)", url: "https://www.servicenow.com/docs/bundle/zurich-platform-security/page/administer/security/task/client-credentials.html"}
   - {title: "Table API", url: "https://www.servicenow.com/docs/bundle/zurich-api-reference/page/integrate/inbound-rest/concept/c_TableAPI.html"}
@@ -32,8 +32,10 @@ fields:
 - The assignment groups whose incidents Tranibor should triage (for instance `Service Desk`).
 - A random secret of at least 32 characters for the webhook, kept in your secret store. You type it twice:
   in Tranibor and in a ServiceNow system property.
-- This procedure is written from ServiceNow's documentation and the plugin's fake instance; it has not yet
-  been run end to end against a live instance.
+- This procedure was run on a Personal Developer Instance of the **Australia** release (patch 7) on
+  2026-11-21, by the server's live suite (`server/tests/live`), with both authentications. What that run did
+  not reach: the Business Rule's delivery to Tranibor itself (the instance needs a public URL for the
+  webhook; the rule's requests were read from its outbound HTTP log instead).
 
 ## At ServiceNow
 
@@ -49,8 +51,13 @@ fields:
      (on newer releases: **New Inbound Integration Experience**, **OAuth - Client credentials grant**).
      Name it `Tranibor`. Set **OAuth Application User** to `choregos.integration`, so every call runs with
      the custom role and nothing more. Save, then copy the **Client ID** and **Client Secret**.
+     On Australia the registry record is an **OAuth Client** whose **Inbound Grant Type** is **Client
+     Credentials** (`inbound_grant_type = client_credential`).
    - On an older release, or a PDI without the client credentials grant, use auth `basic` with the
-     integration user's password instead.
+     integration user's password instead. **From the release that enforces the `SNCRestrictBasicAuth` gate
+     (Australia does), basic authentication of the API needs the role `snc_basic_auth_api_access`**: give it
+     to the integration user, or every call answers `401 User is not authenticated` with the right
+     password.
 4. **The webhook properties.** System Properties, **New**, twice, both with **Read roles** and
    **Write roles** set to `admin`:
    - `choregos.webhook_url`, type string: `{{plugin_webhook_url:servicenow/servicenow}}`;
@@ -94,10 +101,29 @@ fields:
    **Change Request [change_request]** makes those work items too.
 6. Without the Business Rule, Tranibor polls the assignment groups' queue instead, with a delay.
 
+On the Australia instance the rule posted one request per insert, update and comment, each answered with
+its `sys_mod_count` (`server/tests/test_business_rule_deliveries.py` holds four of them). Tranibor's own
+writes are updates too: each work note and status note it adds is posted back, and Tranibor re-reads the
+item for nothing. A condition `gs.getUserName() != 'choregos.integration'` on the rule avoids that.
+
 ## Permissions
 
 The custom role `choregos_integration` holds table ACLs, nothing else: no `admin`, no `itil`, no
-`security_admin`, no script or system property rights.
+`security_admin`, no script or system property rights. Creating an ACL needs the `security_admin` role,
+elevated.
+
+**Never create a field ACL (`incident.category`) or a wildcard one (`sys_user_group.*`) under a name that
+has none.** ServiceNow decides a field by the most specific ACL that exists, in the order `table.field`,
+`parent.field`, `*.field`, `table.*`, `parent.*`, `*.*`: a new ACL under a name that had none becomes the one
+that decides **for every role**, and every other role loses the right the generic ACL gave it. On the
+Australia instance, a new `sys_user_group.*` read ACL for this role took the read of every group field from
+`itil` users, and a new `incident.correlation_id` create ACL took that field from them. Instead, for each
+right below: find the ACL that decides it today, and either create one more ACL **under that same name**
+for the role (ACLs under one name are alternatives: one is enough) or add the role to it (a
+`sys_security_acl_role` row; it then grants the role whatever that ACL covers).
+
+What the Australia run proved enough (with `admin_overrides`, each a new ACL under an existing name, except
+the three marked *role added*):
 
 - **Read** (records and fields) on `incident`, `sc_req_item`, `change_request`, `problem`,
   `kb_knowledge`, `cmdb_ci`, `cmdb_rel_ci`, `sys_user_group`, `sys_choice` and `sys_journal_field`, and on
@@ -109,6 +135,24 @@ The custom role `choregos_integration` holds table ACLs, nothing else: no `admin
   notes).
 - **Create** on `incident` (the tracker can open one) and on `change_request` (`create_change_request`,
   always approved by a person).
+- On that instance the record-level ACLs were new ones under the tables' own names (`incident`,
+  `sc_req_item`, `change_request`, `problem`, `kb_knowledge`, `cmdb_ci`, `cmdb_rel_ci`, `sys_user_group`,
+  `sys_choice`, `sys_journal_field`, `sys_user`: read; `incident`, `sc_req_item`, `change_request`: write;
+  `incident`, `change_request`: create), the field ones `incident.*`, `change_request.*`, `sys_choice.*`
+  (read), `incident.work_notes`, `sc_req_item.work_notes`, `sc_req_item.comments`, `change_request.work_notes`
+  (read), `incident.state`, `incident.impact`, `incident.urgency`, `incident.assigned_to`,
+  `incident.close_code`, `incident.close_notes`, `incident.comments`, `incident.work_notes`,
+  `change_request.state`, `change_request.work_notes` (write), `incident.short_description` (create), and
+  the role added to `change_request.*` write (a change's `correlation_id`: a field's create right is its
+  write right, through the `*.*` create ACL), `task.state` and `task.work_notes` write (a request item's
+  state and close note: `sc_req_item` inherits them from `task`).
+- A creation's `correlation_id` is the server's idempotency key: when the role cannot write it, ServiceNow
+  files the record without it, and the server's answer says `idempotent: false` with the field to grant.
+
+A user with `itil` instead of the role (which this procedure does not advise) was run too: incidents work,
+but `sys_choice` refuses it (the server then uses ServiceNow's out-of-box states), `sys_journal_field`
+answers it no row (the server then reads the record's own journal fields), and knowledge articles are not
+returned at all.
 
 In Tranibor, the server's descriptor is the floor: reads are allowed; work notes and field updates go
 through approval; a customer comment, a resolution and a change request always wait for a person, and an
@@ -137,8 +181,15 @@ organisation can only make that stricter.
 
 - `401` from the instance: wrong client ID or secret, the client credentials grant is not enabled, or the
   OAuth Application User is empty. With `basic`, check **Web service access only** and the password.
-- `403` on a read or a write: the custom role lacks that table or field ACL (see Permissions). The server
-  says which table and field.
+- A read that answers nothing, or `403 Insufficient rights to query records — Field(s) present in the
+  query do not have permission to be read`: the role lacks the table's read ACL (ServiceNow then filters
+  every row out and answers 200) or a field's (see Permissions).
+- `ServiceNow did not apply <field> (asked …, kept …)`: ServiceNow answered 200 to the write and kept the
+  old value, which it does for a field the role cannot write and for a value the field refuses (a category
+  that does not exist). The server writes back the fields of the same call that were applied.
+- `403 Operation Failed — Operation against file 'change_request' was aborted by Business Rule 'Change
+  Model: Check State Transition'`: a change moves only along its change model's transitions; the tracker
+  cannot move a change from `New` straight to another state through the Table API.
 - The webhook answers `401`: the `X-Choregos-Secret` sent differs from `webhook_secret`, or a property is
   empty (the system log shows `Tranibor: … is not set`).
 - No outbound request in the log: the Business Rule's filter does not match the incident's assignment
