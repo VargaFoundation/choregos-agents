@@ -9,9 +9,10 @@ permissions:
   contents: read
 
 env:
-  # The core whose validator, packer, eval matrix and publication library every job runs: a main commit of
-  # graalsystems/tranibor, after the rename to Tranibor (ADR 0176). publish.yml pins the same commit.
-  CHOREGOS_REF: 1048737e80364cef1b742a782e66451f37f7d72f
+  # The core whose validator, packer, eval matrix and publication library every job runs: the commit of
+  # the graalsystems/tranibor v0.28.0 tag (the release that ships ADRs 0196-0199, which access-requests
+  # 0.2.0 and microsoft-365-desk 0.1.0 need). publish.yml pins the same commit.
+  CHOREGOS_REF: 88487e99096d79b80e9aad2d477207f064c460c5
 
 jobs:
   servers:
@@ -71,6 +72,69 @@ jobs:
           done
           [ "$found" = 1 ] || echo "no plugin yet"
 
+  templates:
+    # Each plugin's `tests/` (a template's own checks), played from a core checkout at CHOREGOS_REF:
+    # `tranibor plugin validate` reads a template's manifest only, these read what it ships the way the
+    # platform does (its workflows, the core's template conformance checks, the fan-out and the actions).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play each plugin's template tests against the core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/tests; do
+            [ -d "$dir" ] || continue
+            found=1
+            echo "::group::$dir"
+            TRANIBOR_CORE="$PWD" uv run --frozen pytest -q -p no:cacheprovider "$dir"
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no template tests yet"
+
+  e2e:
+    # Each plugin's `e2e/` tests run on the core's e2e bench (Temporal in skipped time, the API in-process,
+    # fakes): copied into the core's `tests/e2e/`, at CHOREGOS_REF. `microsoft-365-desk` plays its
+    # template on its own server there.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: agents }
+      - uses: actions/checkout@v4
+        with:
+          repository: graalsystems/tranibor
+          ref: ${{ env.CHOREGOS_REF }}
+          path: core
+      - uses: astral-sh/setup-uv@v6
+      - name: play each plugin's end-to-end tests on the core's bench
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd core
+          uv sync --frozen
+          found=0
+          for dir in "$GITHUB_WORKSPACE"/agents/plugins/*/e2e; do
+            [ -d "$dir" ] || continue
+            found=1
+            plugin=$(basename "$(dirname "$dir")")
+            echo "::group::$plugin"
+            cp "$dir"/test_*.py tests/e2e/
+            M365_DESK_PLUGIN_DIR="$GITHUB_WORKSPACE/agents/plugins/microsoft-365-desk" \
+              uv run --frozen pytest -q -p no:cacheprovider $(for f in "$dir"/test_*.py; do echo "tests/e2e/$(basename "$f")"; done)
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || echo "no end-to-end tests yet"
+
   matrix:
     # The ServiceNow plugin's matrix cases (`contents.matrix_cases`, the core's agent-case format), played
     # as the core's scripted eval matrix plays them: found in this tree's plugins as its offline plugins,
@@ -103,10 +167,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      # The history this run brings: a pull request's own commits (base..head), or main's whole history on
+      # a push. Not `--all`: a finding on another open branch would turn every pull request red; that
+      # branch's own pull request scans it.
       - name: gitleaks
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || github.sha }}
         run: |
           docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.24.3 \
-            detect --source /repo --redact --exit-code 1 --no-banner
+            detect --source /repo --redact --exit-code 1 --no-banner --log-opts="$RANGE"
 
   dco:
     if: github.event_name == 'pull_request'
@@ -153,7 +222,7 @@ jobs:
             "$GITHUB_WORKSPACE/agents/plugins" --registry ghcr.io/graalsystems/tranibor-agents --offline
 
   ci-ok:
-    needs: [servers, plugins, matrix, secrets, dco, publication]
+    needs: [servers, plugins, templates, e2e, matrix, secrets, dco, publication]
     if: always()
     runs-on: ubuntu-latest
     steps:

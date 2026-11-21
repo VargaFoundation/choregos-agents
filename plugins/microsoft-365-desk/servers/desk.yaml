@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: Apache-2.0
+# The Microsoft 365 desk MCP server, as the platform runs and governs it (ADR 0094, ADR 0096). Source:
+# ../server. A Tranibor tracker (the core's tracker profile) over two intake channels of an IT desk: a
+# shared mailbox read and answered with Microsoft Graph application permissions (restricted to that one
+# mailbox by Exchange RBAC for Applications), and Teams channels through a bot whose deliveries it verifies.
+# A tool not listed in `operations` is refused by the platform.
+name: desk
+# CI fills the digest when it builds, signs and publishes the image; the zeros are never pullable.
+image: ghcr.io/graalsystems/tranibor-agents/microsoft-365-desk-mcp@sha256:0000000000000000000000000000000000000000000000000000000000000000
+port: 8080
+protocol: mcp-http
+# MCP at /mcp, behind the platform's bearer token (CHOREGOS_SERVER_TOKEN); the health probe stays open.
+paths: {mcp: /mcp, health: /healthz}
+
+# What an administrator types when installing the plugin. Each property reaches the server as the
+# environment variable named in `x-env`; `secret_fields` are sealed and never shown again. At least one
+# channel, `mailbox` or `teams`, is configured: the server refuses to start otherwise.
+config_schema:
+  type: object
+  additionalProperties: false
+  required: [tenant_id, client_id, client_secret]
+  properties:
+    tenant_id:
+      type: string
+      pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      description: The Directory (tenant) ID of the Microsoft Entra tenant.
+      x-env: M365_DESK_TENANT_ID
+    client_id:
+      type: string
+      pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      description: The Application (client) ID of the Entra application (the bot's Microsoft App ID too).
+      x-env: M365_DESK_CLIENT_ID
+    client_secret:
+      type: string
+      minLength: 1
+      description: A client secret of the Entra application.
+      x-env: M365_DESK_CLIENT_SECRET
+    mailbox:
+      type: string
+      pattern: "^[A-Za-z0-9._%+'-]{1,64}@[A-Za-z0-9.-]{1,190}\\.[A-Za-z]{2,63}$"
+      description: The shared mailbox's address, e.g. it-desk@contoso.com (the only mailbox RBAC lets the application reach).
+      x-env: M365_DESK_MAILBOX
+    teams:
+      type: array
+      maxItems: 20
+      description: The Teams channels whose bot mentions become work items (the platform passes them as JSON).
+      items:
+        type: object
+        additionalProperties: false
+        required: [team_id, channel_id]
+        properties:
+          team_id:
+            type: string
+            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+            description: The team's group id.
+          channel_id:
+            type: string
+            pattern: "^19:[A-Za-z0-9_-]{1,64}@thread\\.(tacv2|skype)$"
+            description: The channel id, 19:…@thread.tacv2.
+      x-env: M365_DESK_TEAMS
+    bot_app_id:
+      type: string
+      pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      description: The bot's Microsoft App ID, when it is not client_id (its secret is still client_secret).
+      x-env: M365_DESK_BOT_APP_ID
+    bot_tenant_id:
+      type: string
+      default: botframework.com
+      pattern: "^(botframework\\.com|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
+      description: Where the bot gets its token, botframework.com for a multi-tenant bot, the tenant id for a single-tenant one.
+      x-env: M365_DESK_BOT_TENANT_ID
+    service_url:
+      type: string
+      default: https://smba.trafficmanager.net/teams/
+      pattern: "^https://smba\\.trafficmanager\\.net/[A-Za-z0-9/_-]*$"
+      description: The Bot Connector URL replies go to until a verified activity of the channel names its own.
+      x-env: M365_DESK_SERVICE_URL
+    start_label:
+      type: string
+      default: agent-ready
+      pattern: "^[A-Za-z0-9 ._:/-]{1,64}$"
+      description: The label a request carries until Tranibor takes it (the project's start label).
+      x-env: M365_DESK_START_LABEL
+secret_fields: [client_secret]
+
+# The only hosts the server may reach: Microsoft Graph, Entra's token endpoint, the Bot Framework's keys
+# and the Bot Connector (Teams' service URL in the commercial cloud).
+egress:
+  hosts: [graph.microsoft.com, login.microsoftonline.com, login.botframework.com, smba.trafficmanager.net]
+
+# The governance floor. `access: read` is allowed by default; a write goes through approval unless an
+# administrator decides otherwise. `platform_arguments` are filled by the platform, never the agent:
+# `action_key` (an idempotency key stable for one governed action) and `work_item_key` (the work item the
+# action belongs to: `reply` answers in that work item's thread, or its fan-out parent's, only).
+operations:
+  # The tracker profile (server/TRACKER_PROFILE.md), called by the core's tracker/plugin adapter.
+  - {name: tracker_fetch_item, access: read}
+  - {name: tracker_list_candidates, access: read}
+  - {name: tracker_parse_event, access: read}
+  - name: tracker_create_item
+    access: write
+    description: Not supported; refused (work items come from the mailbox and the Teams channels).
+  - name: tracker_set_state
+    access: write
+    description: "Mail, the category `Choregos: <state>`; Teams, nothing."
+  - name: tracker_comment
+    access: write
+    description: >-
+      Writes nothing: a successful no-op, so the platform's own comments (questions to a person, console
+      links, command answers) never reach the requester.
+    platform_arguments: [action_key]
+  - name: tracker_upsert_status
+    access: write
+    description: Tranibor's status kept on the message (an extended property the requester never sees).
+  - name: tracker_close
+    access: write
+    description: "Mail, the category `Choregos: Done`; nothing is sent to the requester."
+
+  # The agent's own answer to the requester. No `human_approval` floor: a write waits for approval by
+  # default, and the organisation's policy decides.
+  - name: reply
+    access: write
+    description: >-
+      Answer the requester in the original thread (a mail reply to the sender only, or a reply in the Teams
+      thread), plain text, once per governed action; only in the thread of the action's own work item or of
+      its fan-out parent (work_item_key is the key or key.<n>…), refused without a work item.
+    platform_arguments: [action_key, work_item_key]
+
+implements: [tracker]
+
+# Bot Connector deliveries carry a JWT in `Authorization`: the platform forwards it to this server's
+# `tracker_parse_event`, which verifies it (the core's ADR 0198). The platform calls the tool over /mcp;
+# POST /events is the same door for a direct caller, behind the platform's token.
+webhook:
+  path: /events
+  forward_authorization: true
+
+# How the platform runs this server on its fake for the eval matrix (core #1372): the variable that
+# switches it to its seeded in-memory tenant (server/src/choregos_m365_desk/fake.py), which no
+# configuration field reaches. The platform adds its own token (CHOREGOS_SERVER_TOKEN) and nothing of the
+# configuration.
+fake:
+  env: {M365_DESK_FAKE: "1"}
+  scenes: [default]

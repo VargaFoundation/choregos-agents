@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: choregos/v1
+kind: Template
+metadata:
+  name: access-requests-m365
+  version: 0.2.0
+  display: Access requests and IT desk (Microsoft 365)
+  description: >-
+    The requests people send the IT desk all day — access to a tool, a place in a group, a bug on a
+    solution — arrive in the desk's shared mailbox or Teams channel and become work items, answered in
+    the same thread. A desk agent reads each one with the access catalogue and the directory, and
+    sorts it: an access request opens one grant per group, each a governed action the tool's approvers
+    decide, re-authenticated, before the directory is written — never the person it grants nor who
+    asked; a bug report is qualified and filed in the solution's project, whatever its tracker, once a
+    person approves; anything else, or anything unsure, goes to a person. The agent writes nothing.
+requires:
+  # The project's tracker is the `microsoft-365-desk` plugin's server: the shared mailbox and the Teams
+  # channel it reads (`plugin:<plugin>/<server>`, the convention of the core's plugin trackers).
+  connectors:
+    tracker: plugin:microsoft-365-desk/desk
+  # The organisation: the connectors the actions call, by NAME, and their capability — the directory for
+  # the grants, the desk's server for the replies in the requester's thread.
+  org_connectors:
+    directory: identity
+    desk: mcp
+defaults:
+  workflows: [./workflows/access-request.yaml, ./workflows/access-grant.yaml, ./workflows/bug-report.yaml]
+  default_workflow: access-request
+  policy: preset:solo
+  # Installed in the organisation when a project is born from the template — never rewritten if they
+  # are already there: the organisation edits its catalogue as a new version of the skill.
+  skills: [./skills/request-desk, ./skills/access-catalogue, ./skills/solutions]
+  agents: [./agents/request-desk.yaml]
+inputs: []
+steps: []

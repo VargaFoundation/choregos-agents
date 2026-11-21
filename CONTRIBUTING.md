@@ -33,7 +33,8 @@ plugins/<name>/
 
 Every pull request runs `tranibor plugin validate` and a reproducible `pack` on each plugin, the tests
 of each server, the ServiceNow plugin's matrix cases played as the core's scripted eval matrix plays them
-and judged by its case judge, the publication script's tests and an offline dry run of it, gitleaks and
+and judged by its case judge, the publication script's tests and an offline dry run of it, gitleaks on
+the pull request's own commits (main's whole history on a push) and
 the DCO. Every job that needs the core runs it at one commit, `CHOREGOS_REF` in `ci.yml` (the same in
 `publish.yml`): move both together, to a release tag's commit.
 

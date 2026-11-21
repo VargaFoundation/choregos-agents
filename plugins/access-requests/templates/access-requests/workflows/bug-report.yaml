@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+# One bug report, opened by an `access-request` (its `spawn:`) with what the desk agent qualified: the
+# solution's project, a title and the report. It is filed in that project — through its own tracker, Jira,
+# GitHub, GitLab or another — by ONE governed action, `work_item.file` (ADR 0197 of the core), once a person
+# of the desk approves it; the approver reads the report before it leaves. The target project must accept
+# work items from this one (`accepts_items_from`). Not filed: a person takes the request over.
+apiVersion: choregos/v1
+kind: Workflow
+metadata:
+  name: bug-report
+  version: 1
+  description: One qualified bug report, filed in the solution's project once a person of the desk approves it.
+  inputs:
+    type: object
+    required: [project, title, report]
+    properties:
+      project: { type: string, title: Solution's project, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+      title: { type: string, title: Title, minLength: 1, maxLength: 200 }
+      report: { type: string, title: Report, minLength: 1, maxLength: 3500 }
+      requester: { type: string, title: Reported by, maxLength: 200 }
+      # The parent's key: a trigger's is `<PREFIX>-<trigger>.<up to 120 characters of the message id>`.
+      request: { type: string, title: Request, maxLength: 255 }
+initial: filing
+actors:
+  desk: { type: human, group: it-desk, sla_hours: 8 }
+  platform: { type: system }
+states:
+  filing: { display: Report to file, kind: wait }
+  filed: { display: Filed, terminal: true }
+  not_filed: { display: Not filed, terminal: true }
+  needs_review: { display: Filing failed, kind: wait }
+  abandoned: { display: Abandoned, terminal: true }
+transitions:
+  - id: t-file
+    from: filing
+    to: filed
+    by: platform
+    action:
+      kind: bug.file
+      title: "File in {{ fields.project }}: {{ fields.title }}"
+      justification: "{{ fields.report }}"
+      params:
+        project: "{{ fields.project }}"
+        title: "{{ fields.title }}"
+        report: "{{ fields.report }}"
+        reporter: "{{ fields.requester | default('unknown', true) }}"
+        request: "{{ fields.request | default('none', true) }}"
+      effects:
+        - effect: work_item.file
+          with:
+            project: "{{ params.project }}"
+            title: "{{ params.title }}"
+            body: "{{ params.report }}\n\nReported by {{ params.reporter }} (request {{ params.request }})."
+            labels: [bug]
+      approval:
+        approvers: [{ role: contributor, group: it-desk, min: 1 }]
+        excluded: ["{{ fields.requester }}"]
+        step_up_minutes: 10
+    on_reject: not_filed
+    # Filed once: a failure after approval is not proposed again on its own.
+    on_fail: { to: filing, max_attempts: 1, escalate_to: needs_review }
+
+  - id: t-retry
+    from: needs_review
+    to: filing
+    by: desk
+    timeout_hours: 720
+    on_reject: abandoned
